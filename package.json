@@ -13,9 +13,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCustomEditor:facturx.pdfXmlEditor"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "customEditors": [
@@ -32,11 +29,28 @@
     ],
     "commands": [
       {
-        "command": "facturx.openSideBySide",
-        "title": "%command.openSideBySide.title%",
-        "category": "Factur-X"
+        "command": "facturx.openInEditor",
+        "title": "%command.openInEditor.title%",
+        "category": "Factur-X",
+        "icon": "$(open-preview)"
       }
-    ]
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "facturx.openInEditor",
+          "when": "resourceExtname == .pdf",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "facturx.openInEditor",
+          "when": "resourceExtname == .pdf",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",

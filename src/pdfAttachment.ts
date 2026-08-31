@@ -1,4 +1,5 @@
 import {
+  AFRelationship,
   PDFArray,
   PDFDict,
   PDFDocument,
@@ -9,6 +10,8 @@ import {
   PDFString,
   decodePDFRawStream,
 } from 'pdf-lib';
+
+export const DEFAULT_XML_ATTACHMENT_NAME = 'factur-x.xml';
 
 export interface EmbeddedXmlFile {
   name: string;
@@ -22,7 +25,7 @@ function nameTreeEntries(namesArray: PDFArray): Array<{ name: string; fileSpec: 
   const entries: Array<{ name: string; fileSpec: PDFDict }> = [];
   for (let i = 0; i + 1 < namesArray.size(); i += 2) {
     const nameObj = namesArray.lookup(i);
-    const fileSpec = namesArray.lookup(i + 1, PDFDict);
+    const fileSpec = namesArray.lookupMaybe(i + 1, PDFDict);
     const name = nameObj instanceof PDFHexString || nameObj instanceof PDFString
       ? nameObj.decodeText()
       : undefined;
@@ -34,15 +37,15 @@ function nameTreeEntries(namesArray: PDFArray): Array<{ name: string; fileSpec: 
 }
 
 function findEmbeddedFileNames(pdfDoc: PDFDocument): Array<{ name: string; fileSpec: PDFDict }> {
-  const namesDict = pdfDoc.catalog.lookup(PDFName.of('Names'), PDFDict);
+  const namesDict = pdfDoc.catalog.lookupMaybe(PDFName.of('Names'), PDFDict);
   if (!namesDict) {
     return [];
   }
-  const embeddedFilesDict = namesDict.lookup(PDFName.of('EmbeddedFiles'), PDFDict);
+  const embeddedFilesDict = namesDict.lookupMaybe(PDFName.of('EmbeddedFiles'), PDFDict);
   if (!embeddedFilesDict) {
     return [];
   }
-  const namesArray = embeddedFilesDict.lookup(PDFName.of('Names'), PDFArray);
+  const namesArray = embeddedFilesDict.lookupMaybe(PDFName.of('Names'), PDFArray);
   if (!namesArray) {
     // A /Kids tree is possible for large attachment sets; Factur-X invoices carry
     // only a handful of attachments so a flat /Names array is the only case we support.
@@ -52,8 +55,8 @@ function findEmbeddedFileNames(pdfDoc: PDFDocument): Array<{ name: string; fileS
 }
 
 function readEmbeddedFileStream(fileSpec: PDFDict): PDFRawStream | undefined {
-  const efDict = fileSpec.lookup(PDFName.of('EF'), PDFDict);
-  const stream = efDict?.lookup(PDFName.of('F'), PDFStream);
+  const efDict = fileSpec.lookupMaybe(PDFName.of('EF'), PDFDict);
+  const stream = efDict?.lookupMaybe(PDFName.of('F'), PDFStream);
   return stream instanceof PDFRawStream ? stream : undefined;
 }
 
@@ -101,8 +104,8 @@ export async function replaceEmbeddedXml(
     throw new Error(`Embedded file "${attachmentName}" not found in PDF`);
   }
 
-  const efDict = entry.fileSpec.lookup(PDFName.of('EF'), PDFDict);
-  const oldStream = efDict?.lookup(PDFName.of('F'), PDFStream);
+  const efDict = entry.fileSpec.lookupMaybe(PDFName.of('EF'), PDFDict);
+  const oldStream = efDict?.lookupMaybe(PDFName.of('F'), PDFStream);
   if (!efDict || !(oldStream instanceof PDFRawStream)) {
     throw new Error(`Embedded file stream for "${attachmentName}" is malformed`);
   }
@@ -117,4 +120,29 @@ export async function replaceEmbeddedXml(
   efDict.set(PDFName.of('F'), newStreamRef);
 
   return pdfDoc.save();
+}
+
+/**
+ * Replaces the named embedded XML attachment if it already exists, or creates it
+ * (via pdf-lib's high-level `attach`, which also wires the /AF associated-files
+ * entry PDF/A-3 requires) if the PDF doesn't carry one yet.
+ */
+export async function upsertEmbeddedXml(
+  pdfBytes: Uint8Array,
+  attachmentName: string,
+  xmlBytes: Uint8Array,
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const entries = findEmbeddedFileNames(pdfDoc);
+  const exists = entries.some((candidate) => candidate.name === attachmentName);
+
+  if (!exists) {
+    await pdfDoc.attach(xmlBytes, attachmentName, {
+      mimeType: 'text/xml',
+      afRelationship: AFRelationship.Data,
+    });
+    return pdfDoc.save();
+  }
+
+  return replaceEmbeddedXml(pdfBytes, attachmentName, xmlBytes);
 }

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PDFDocument } from 'pdf-lib';
-import { extractEmbeddedXml } from './pdfAttachment';
+import { DEFAULT_XML_ATTACHMENT_NAME, extractEmbeddedXml } from './pdfAttachment';
+import { blankCiiInvoiceSkeleton } from './facturxProfile';
 import { FacturXXmlFileSystemProvider } from './xmlFileSystemProvider';
 
 class PdfDocument implements vscode.CustomDocument {
@@ -78,9 +79,15 @@ export class PdfXmlEditorProvider implements vscode.CustomReadonlyEditorProvider
 
     if (!embedded) {
       vscode.window.showInformationMessage(
-        vscode.l10n.t('No embedded Factur-X XML found in {0}.', pdfUri.fsPath),
+        vscode.l10n.t(
+          'No embedded Factur-X XML found in {0}. A blank MINIMUM-profile invoice was opened; saving it will add it as a new attachment.',
+          pdfUri.fsPath,
+        ),
       );
-      return;
+      embedded = {
+        name: DEFAULT_XML_ATTACHMENT_NAME,
+        bytes: new TextEncoder().encode(blankCiiInvoiceSkeleton()),
+      };
     }
 
     const xmlUri = this.xmlFs.register(pdfUri, embedded.name, embedded.bytes);
