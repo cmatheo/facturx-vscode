@@ -48,5 +48,8 @@
     "@types/vscode": "^1.90.0",
     "typescript": "^5.4.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289"
+  }
 }
