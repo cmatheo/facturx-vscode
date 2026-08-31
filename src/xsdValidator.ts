@@ -82,7 +82,66 @@ export async function validateAgainstXsd(
   }
 
   return result.errors.map((error) => ({
-    message: error.message,
+    message: humanizeXsdMessage(error.message),
     line: error.loc?.lineNumber,
   }));
+}
+
+/** Strips the `{urn:...}` namespace prefix libxml2 puts in front of every element name,
+ * leaving just the local tag name (e.g. `{urn:...:100}ApplicableTradeTax` -> `ApplicableTradeTax`). */
+function stripNamespaces(text: string): string {
+  return text.replace(/\{[^}]*\}/g, '');
+}
+
+/** Turns a parenthesised, space-separated libxml2 element list into a readable comma list:
+ * "( {ns}A, {ns}B )" -> "A, B". */
+function formatElementList(rawList: string): string {
+  return stripNamespaces(rawList)
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+    .join(', ');
+}
+
+/**
+ * Rewrites raw libxml2/xmllint schema-validation messages into something a user editing
+ * Factur-X XML (rather than the underlying XSD) can actually act on: strips the verbose
+ * namespace URIs, and for the two most common/confusing cases (an out-of-order or extra
+ * element, a missing mandatory child) adds a plain-English explanation of what to do.
+ */
+export function humanizeXsdMessage(raw: string): string {
+  const notExpectedMatch = /^Element '([^']+)': This element is not expected\.(?: Expected is (?:one of )?\(([^)]*)\)\.)?$/.exec(
+    raw.trim(),
+  );
+  if (notExpectedMatch) {
+    const element = stripNamespaces(notExpectedMatch[1]);
+    const expectedRaw = notExpectedMatch[2];
+    if (expectedRaw) {
+      const expected = formatElementList(expectedRaw);
+      return (
+        `Unexpected element <${element}> here. At this point, the schema expects one of: ${expected}. ` +
+        `This usually means <${element}> is out of order, or a mandatory element is missing before it.`
+      );
+    }
+    return `Unexpected element <${element}> here — no further elements are allowed at this point (it may be duplicated, or misplaced).`;
+  }
+
+  const missingChildMatch = /^Element '([^']+)': Missing child element\(s\)\. Expected is \(([^)]*)\)\.$/.exec(
+    raw.trim(),
+  );
+  if (missingChildMatch) {
+    const element = stripNamespaces(missingChildMatch[1]);
+    const expected = formatElementList(missingChildMatch[2]);
+    return `<${element}> is missing a required child element: ${expected}.`;
+  }
+
+  const noRootMatch = /^Element '([^']+)': No matching global declaration available for the validation root\.$/.exec(
+    raw.trim(),
+  );
+  if (noRootMatch) {
+    const element = stripNamespaces(noRootMatch[1]);
+    return `<${element}> is not a valid root element for this schema — check the document's declared Factur-X profile.`;
+  }
+
+  return stripNamespaces(raw);
 }
