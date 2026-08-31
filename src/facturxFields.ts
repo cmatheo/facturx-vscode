@@ -93,22 +93,24 @@ export const FIELD_DEFS: FieldDef[] = [
     default: 'SELLER NAME',
   },
   {
-    id: 'sellerStreet',
-    group: 'Seller',
-    label: 'Street',
-    description: 'Seller postal address, first address line.',
-    type: 'text',
-    xmlPath: ['ram:SellerTradeParty', 'ram:PostalTradeAddress', 'ram:LineOne'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-  },
-  {
+    // Must stay ordered before sellerStreet: TradeAddressType's schema sequence is
+    // PostcodeCode, LineOne, LineTwo, LineThree, CityName, CountryID.
     id: 'sellerPostcode',
     group: 'Seller',
     label: 'Postcode',
     description: 'Seller postal address, postcode.',
     type: 'text',
     xmlPath: ['ram:SellerTradeParty', 'ram:PostalTradeAddress', 'ram:PostcodeCode'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+  },
+  {
+    id: 'sellerStreet',
+    group: 'Seller',
+    label: 'Street',
+    description: 'Seller postal address, first address line.',
+    type: 'text',
+    xmlPath: ['ram:SellerTradeParty', 'ram:PostalTradeAddress', 'ram:LineOne'],
     mandatoryFor: FROM_BASICWL,
     availableFrom: 'basicwl',
   },
@@ -164,22 +166,24 @@ export const FIELD_DEFS: FieldDef[] = [
     default: 'BUYER NAME',
   },
   {
-    id: 'buyerStreet',
-    group: 'Buyer',
-    label: 'Street',
-    description: 'Buyer postal address, first address line.',
-    type: 'text',
-    xmlPath: ['ram:BuyerTradeParty', 'ram:PostalTradeAddress', 'ram:LineOne'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-  },
-  {
+    // Must stay ordered before buyerStreet: TradeAddressType's schema sequence is
+    // PostcodeCode, LineOne, LineTwo, LineThree, CityName, CountryID.
     id: 'buyerPostcode',
     group: 'Buyer',
     label: 'Postcode',
     description: 'Buyer postal address, postcode.',
     type: 'text',
     xmlPath: ['ram:BuyerTradeParty', 'ram:PostalTradeAddress', 'ram:PostcodeCode'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+  },
+  {
+    id: 'buyerStreet',
+    group: 'Buyer',
+    label: 'Street',
+    description: 'Buyer postal address, first address line.',
+    type: 'text',
+    xmlPath: ['ram:BuyerTradeParty', 'ram:PostalTradeAddress', 'ram:LineOne'],
     mandatoryFor: FROM_BASICWL,
     availableFrom: 'basicwl',
   },
@@ -212,6 +216,127 @@ export const FIELD_DEFS: FieldDef[] = [
     xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:InvoiceCurrencyCode'],
     mandatoryFor: ALL_PROFILES,
     default: 'EUR',
+  },
+  // The next fields (payment means, VAT breakdown, payment terms) must stay in this
+  // exact relative order: HeaderTradeSettlementType's schema sequence is
+  // InvoiceCurrencyCode, SpecifiedTradeSettlementPaymentMeans, ApplicableTradeTax,
+  // SpecifiedTradePaymentTerms, SpecifiedTradeSettlementHeaderMonetarySummation -
+  // and buildCiiInvoiceXml() creates each element the first time a field targeting
+  // it is processed, so FIELD_DEFS order drives output order for siblings.
+  {
+    id: 'paymentMeansTypeCode',
+    group: 'Payment & totals',
+    label: 'Payment means code',
+    description: 'UNTDID 4461 payment means code (e.g. 58 = SEPA credit transfer, 59 = SEPA direct debit).',
+    type: 'text',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:SpecifiedTradeSettlementPaymentMeans', 'ram:TypeCode'],
+    mandatoryFor: [],
+    availableFrom: 'basicwl',
+    default: '58',
+  },
+  {
+    id: 'paymentMeansIban',
+    group: 'Payment & totals',
+    label: 'Payee IBAN',
+    description: 'IBAN of the account the invoice should be paid into.',
+    type: 'text',
+    xmlPath: [
+      'ram:ApplicableHeaderTradeSettlement',
+      'ram:SpecifiedTradeSettlementPaymentMeans',
+      'ram:PayeePartyCreditorFinancialAccount',
+      'ram:IBANID',
+    ],
+    mandatoryFor: [],
+    availableFrom: 'basicwl',
+  },
+  {
+    id: 'vatCalculatedAmount',
+    group: 'VAT breakdown',
+    label: 'VAT amount',
+    description: 'Tax amount for this VAT category/rate (single breakdown line - see note below).',
+    type: 'number',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CalculatedAmount'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+    default: '0.00',
+  },
+  {
+    id: 'vatTypeCode',
+    group: 'VAT breakdown',
+    label: 'Tax type code',
+    description: 'UNTDID 5153 tax type code. VAT for standard European value-added tax.',
+    type: 'text',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:TypeCode'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+    default: 'VAT',
+  },
+  {
+    id: 'vatBasisAmount',
+    group: 'VAT breakdown',
+    label: 'VAT basis amount',
+    description: 'Amount this VAT rate applies to (should match the tax basis total for a single-rate invoice).',
+    type: 'number',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:BasisAmount'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+    default: '0.00',
+  },
+  {
+    id: 'vatCategoryCode',
+    group: 'VAT breakdown',
+    label: 'VAT category code',
+    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
+    type: 'text',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CategoryCode'],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+    default: 'S',
+  },
+  {
+    id: 'vatRatePercent',
+    group: 'VAT breakdown',
+    label: 'VAT rate (%)',
+    description: 'Applicable VAT rate as a percentage (e.g. 20.00).',
+    type: 'number',
+    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:RateApplicablePercent'],
+    mandatoryFor: [],
+    availableFrom: 'basicwl',
+    default: '20.00',
+  },
+  {
+    id: 'paymentDueDate',
+    group: 'Payment & totals',
+    label: 'Payment due date',
+    description: 'Date by which the invoice must be paid.',
+    type: 'date',
+    xmlPath: [
+      'ram:ApplicableHeaderTradeSettlement',
+      'ram:SpecifiedTradePaymentTerms',
+      'ram:DueDateDateTime',
+      'udt:DateTimeString',
+    ],
+    attribute: { name: 'format', value: '102' },
+    mandatoryFor: [],
+    availableFrom: 'basicwl',
+  },
+  {
+    // SpecifiedTradeSettlementHeaderMonetarySummationType only defines LineTotalAmount
+    // from basicwl onward (MINIMUM's summation type omits it entirely) - and where it
+    // exists it must be the first child, before TaxBasisTotalAmount.
+    id: 'lineTotalSum',
+    group: 'Payment & totals',
+    label: 'Line total sum',
+    description: 'Sum of all invoice line net totals, excluding tax (should match the tax basis total when there are no allowances/charges).',
+    type: 'number',
+    xmlPath: [
+      'ram:ApplicableHeaderTradeSettlement',
+      'ram:SpecifiedTradeSettlementHeaderMonetarySummation',
+      'ram:LineTotalAmount',
+    ],
+    mandatoryFor: FROM_BASICWL,
+    availableFrom: 'basicwl',
+    default: '0.00',
   },
   {
     id: 'taxBasisTotal',
@@ -275,6 +400,101 @@ export function isFieldMandatory(field: FieldDef, profile: FacturXProfile): bool
   return field.mandatoryFor.includes(profile);
 }
 
+/** The least rich profile whose schema even defines IncludedSupplyChainTradeLineItem (BASICWL omits it entirely - it's the "without lines" profile). */
+export const LINE_ITEMS_AVAILABLE_FROM: FacturXProfile = 'basic';
+
+export function areLineItemsAvailable(profile: FacturXProfile): boolean {
+  return ALL_PROFILES.indexOf(profile) >= ALL_PROFILES.indexOf(LINE_ITEMS_AVAILABLE_FROM);
+}
+
+/**
+ * One column of an invoice line row. Kept separate from FieldDef/FIELD_DEFS since
+ * line items are a repeatable structure (zero or more rows) rather than a single
+ * document-wide value. `xmlLeaf` is relative to one
+ * <ram:IncludedSupplyChainTradeLineItem> element.
+ */
+export interface LineItemFieldDef {
+  id: string;
+  label: string;
+  description: string;
+  type: FieldType;
+  xmlLeaf: string[];
+  attribute?: { name: string; value: string };
+  default?: string;
+}
+
+// Order matters here too, matching SupplyChainTradeLineItemType's schema sequence:
+// AssociatedDocumentLineDocument, SpecifiedTradeProduct, SpecifiedLineTradeAgreement,
+// SpecifiedLineTradeDelivery, SpecifiedLineTradeSettlement (whose own ApplicableTradeTax
+// is itself ordered CalculatedAmount/TypeCode/BasisAmount/CategoryCode/RateApplicablePercent).
+export const LINE_ITEM_FIELD_DEFS: LineItemFieldDef[] = [
+  {
+    id: 'lineId',
+    label: 'Line #',
+    description: 'Sequential line number within the invoice.',
+    type: 'text',
+    xmlLeaf: ['ram:AssociatedDocumentLineDocument', 'ram:LineID'],
+  },
+  {
+    id: 'productName',
+    label: 'Product / service',
+    description: 'Name of the product or service billed on this line.',
+    type: 'text',
+    xmlLeaf: ['ram:SpecifiedTradeProduct', 'ram:Name'],
+  },
+  {
+    id: 'unitPrice',
+    label: 'Net unit price',
+    description: 'Net price per unit, excluding VAT.',
+    type: 'number',
+    xmlLeaf: ['ram:SpecifiedLineTradeAgreement', 'ram:NetPriceProductTradePrice', 'ram:ChargeAmount'],
+  },
+  {
+    id: 'quantity',
+    label: 'Quantity',
+    description: 'Billed quantity.',
+    type: 'number',
+    xmlLeaf: ['ram:SpecifiedLineTradeDelivery', 'ram:BilledQuantity'],
+    attribute: { name: 'unitCode', value: 'C62' },
+    default: '1',
+  },
+  {
+    id: 'vatTypeCode',
+    label: 'Tax type code',
+    description: 'UNTDID 5153 tax type code for this line. VAT for standard European value-added tax.',
+    type: 'text',
+    xmlLeaf: ['ram:SpecifiedLineTradeSettlement', 'ram:ApplicableTradeTax', 'ram:TypeCode'],
+    default: 'VAT',
+  },
+  {
+    id: 'vatCategoryCode',
+    label: 'VAT category code',
+    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
+    type: 'text',
+    xmlLeaf: ['ram:SpecifiedLineTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CategoryCode'],
+    default: 'S',
+  },
+  {
+    id: 'vatRatePercent',
+    label: 'VAT rate (%)',
+    description: 'Applicable VAT rate as a percentage for this line (e.g. 20.00).',
+    type: 'number',
+    xmlLeaf: ['ram:SpecifiedLineTradeSettlement', 'ram:ApplicableTradeTax', 'ram:RateApplicablePercent'],
+    default: '20.00',
+  },
+  {
+    id: 'lineTotal',
+    label: 'Line total',
+    description: 'Net total amount for this line (quantity x unit price), excluding VAT.',
+    type: 'number',
+    xmlLeaf: [
+      'ram:SpecifiedLineTradeSettlement',
+      'ram:SpecifiedTradeSettlementLineMonetarySummation',
+      'ram:LineTotalAmount',
+    ],
+  },
+];
+
 function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -331,6 +551,27 @@ function renderNode(n: XmlNode, indent: string): string {
   return `${indent}<${n.name}${attrs}>\n${inner}\n${indent}</${n.name}>`;
 }
 
+/** Builds one <ram:IncludedSupplyChainTradeLineItem> node, or undefined if every field in `line` is empty. */
+function buildLineItemNode(line: Record<string, string>): XmlNode | undefined {
+  const hasAnyValue = LINE_ITEM_FIELD_DEFS.some((field) => (line[field.id] ?? '').trim() !== '');
+  if (!hasAnyValue) {
+    return undefined;
+  }
+  const lineNode = node('ram:IncludedSupplyChainTradeLineItem');
+  for (const field of LINE_ITEM_FIELD_DEFS) {
+    const raw = line[field.id];
+    if (raw === undefined || raw.trim() === '') {
+      continue;
+    }
+    const target = descend(lineNode, field.xmlLeaf, true)!;
+    target.text = raw;
+    if (field.attribute) {
+      target.attributes.push(field.attribute);
+    }
+  }
+  return lineNode;
+}
+
 /**
  * Builds a full CII invoice XML document from form field values. Fields whose value
  * is empty/absent are omitted entirely (rather than emitted as empty tags) so that,
@@ -338,7 +579,11 @@ function renderNode(n: XmlNode, indent: string): string {
  * by omission rather than by an empty element - the intended way to produce
  * deliberately malformed test documents.
  */
-export function buildCiiInvoiceXml(profile: FacturXProfile, values: Record<string, string>): string {
+export function buildCiiInvoiceXml(
+  profile: FacturXProfile,
+  values: Record<string, string>,
+  lineItems: Array<Record<string, string>> = [],
+): string {
   const root = node('rsm:CrossIndustryInvoice');
 
   const context = descend(root, ['rsm:ExchangedDocumentContext'], true)!;
@@ -355,6 +600,19 @@ export function buildCiiInvoiceXml(profile: FacturXProfile, values: Record<strin
   descend(root, ['rsm:ExchangedDocument'], true);
 
   const transaction = descend(root, ['rsm:SupplyChainTradeTransaction'], true)!;
+
+  // Line items (when the profile's schema even defines them - BASICWL doesn't) must
+  // be the first children of SupplyChainTradeTransaction, before the agreement/
+  // delivery/settlement blocks created just below.
+  if (areLineItemsAvailable(profile)) {
+    for (const line of lineItems) {
+      const lineNode = buildLineItemNode(line);
+      if (lineNode) {
+        transaction.children.push(lineNode);
+      }
+    }
+  }
+
   // Ensure the three top-level transaction blocks always exist, even empty, and in
   // schema-mandated order (agreement, delivery, settlement), before individual
   // fields fill them in below.
@@ -446,22 +704,47 @@ function renderRootWithNamespaces(root: XmlNode): string {
 export function extractFieldValues(xml: string): Record<string, string> {
   const values: Record<string, string> = {};
   for (const field of FIELD_DEFS) {
-    let scope = xml;
-    let found = true;
-    for (const segment of field.xmlPath) {
-      const tagPattern = new RegExp(`<${escapeRegExp(segment)}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapeRegExp(segment)}>`);
-      const match = tagPattern.exec(scope);
-      if (!match) {
-        found = false;
-        break;
-      }
-      scope = match[1];
-    }
-    if (found) {
-      values[field.id] = scope.trim();
+    const value = narrowToPath(xml, field.xmlPath);
+    if (value !== undefined) {
+      values[field.id] = value;
     }
   }
   return values;
+}
+
+/**
+ * Best-effort extraction of each invoice line's field values, one entry per
+ * <ram:IncludedSupplyChainTradeLineItem> block found in the XML (in document order).
+ * Same non-parser caveats as extractFieldValues.
+ */
+export function extractLineItems(xml: string): Array<Record<string, string>> {
+  const blocks =
+    xml.match(/<ram:IncludedSupplyChainTradeLineItem>[\s\S]*?<\/ram:IncludedSupplyChainTradeLineItem>/g) ??
+    [];
+  return blocks.map((block) => {
+    const values: Record<string, string> = {};
+    for (const field of LINE_ITEM_FIELD_DEFS) {
+      const value = narrowToPath(block, field.xmlLeaf);
+      if (value !== undefined) {
+        values[field.id] = value;
+      }
+    }
+    return values;
+  });
+}
+
+/** Narrows `xml` down through nested `<segment>...</segment>` tags one level at a time, returning the innermost trimmed text, or undefined if any segment along the path is missing. */
+function narrowToPath(xml: string, path: string[]): string | undefined {
+  let scope = xml;
+  for (const segment of path) {
+    const tagPattern = new RegExp(`<${escapeRegExp(segment)}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapeRegExp(segment)}>`);
+    const match = tagPattern.exec(scope);
+    if (!match) {
+      return undefined;
+    }
+    scope = match[1];
+  }
+  return scope.trim();
 }
 
 function escapeRegExp(value: string): string {

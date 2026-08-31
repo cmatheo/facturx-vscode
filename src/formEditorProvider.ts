@@ -1,6 +1,13 @@
 import * as vscode from 'vscode';
 import { FacturXProfile, facturXProfileLabel } from './facturxProfile';
-import { FIELD_DEFS, buildCiiInvoiceXml, extractFieldValues } from './facturxFields';
+import {
+  FIELD_DEFS,
+  LINE_ITEM_FIELD_DEFS,
+  LINE_ITEMS_AVAILABLE_FROM,
+  buildCiiInvoiceXml,
+  extractFieldValues,
+  extractLineItems,
+} from './facturxFields';
 
 const ALL_PROFILES: FacturXProfile[] = ['minimum', 'basicwl', 'basic', 'en16931', 'extended'];
 
@@ -72,7 +79,7 @@ export class FacturXFormPanelManager {
         if (message?.type === 'ready' || message?.type === 'reload') {
           await this.postInitialValues(current);
         } else if (message?.type === 'apply') {
-          await this.applyXml(current.xmlUri, message.profile, message.values);
+          await this.applyXml(current.xmlUri, message.profile, message.values, message.lineItems ?? []);
         } else if (message?.type === 'error') {
           vscode.window.showErrorMessage(
             vscode.l10n.t('Factur-X field form error: {0}', String(message.message)),
@@ -98,8 +105,10 @@ export class FacturXFormPanelManager {
     }
 
     let values: Record<string, string> = {};
+    let lineItems: Array<Record<string, string>> = [];
     try {
       values = xml ? extractFieldValues(xml) : {};
+      lineItems = xml ? extractLineItems(xml) : [];
     } catch (error) {
       vscode.window.showErrorMessage(
         vscode.l10n.t('Failed to read current field values from the XML: {0}', String(error)),
@@ -120,6 +129,15 @@ export class FacturXFormPanelManager {
       })),
       profiles: ALL_PROFILES.map((profile) => ({ value: profile, label: facturXProfileLabel(profile) })),
       values,
+      lineItemFields: LINE_ITEM_FIELD_DEFS.map((field) => ({
+        id: field.id,
+        label: field.label,
+        description: field.description,
+        type: field.type,
+        default: field.default,
+      })),
+      lineItemsAvailableFrom: LINE_ITEMS_AVAILABLE_FROM,
+      lineItems,
     });
   }
 
@@ -127,9 +145,10 @@ export class FacturXFormPanelManager {
     xmlUri: vscode.Uri,
     profile: FacturXProfile,
     values: Record<string, string>,
+    lineItems: Array<Record<string, string>>,
   ): Promise<void> {
     const document = await vscode.workspace.openTextDocument(xmlUri);
-    const xml = buildCiiInvoiceXml(profile, values);
+    const xml = buildCiiInvoiceXml(profile, values, lineItems);
     const edit = new vscode.WorkspaceEdit();
     edit.replace(xmlUri, new vscode.Range(0, 0, document.lineCount, 0), xml);
     await vscode.workspace.applyEdit(edit);
@@ -163,6 +182,14 @@ export class FacturXFormPanelManager {
   #applyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
   #warning { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 12px; }
   #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+  #lineItemsSection { margin-bottom: 10px; }
+  #lineItemsSection.unavailable { opacity: 0.5; }
+  #lineItemsTable { width: 100%; border-collapse: collapse; }
+  #lineItemsTable th { text-align: left; font-weight: 600; font-size: 11px; color: var(--vscode-descriptionForeground); padding: 2px 4px; }
+  #lineItemsTable td { padding: 2px 4px; }
+  #lineItemsTable input { min-width: 70px; }
+  #lineItemsTable .lineRemoveBtn { color: var(--vscode-editorError-foreground, #f14c4c); background: none; border: none; }
+  #addLineBtn { margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -174,6 +201,14 @@ export class FacturXFormPanelManager {
     <span id="warning"></span>
   </div>
   <div id="groups"></div>
+  <fieldset id="lineItemsSection">
+    <legend>Invoice lines</legend>
+    <table id="lineItemsTable">
+      <thead><tr id="lineItemsHeaderRow"></tr></thead>
+      <tbody id="lineItemsBody"></tbody>
+    </table>
+    <button id="addLineBtn">Add line</button>
+  </fieldset>
   <script nonce="${nonce}">
     const vscodeApi = acquireVsCodeApi();
     window.addEventListener('error', (event) => {
@@ -183,12 +218,19 @@ export class FacturXFormPanelManager {
     let fields = [];
     let profiles = [];
     let values = {};
+    let lineItemFields = [];
+    let lineItemsAvailableFrom = 'basic';
+    let lineItems = [];
 
     const profileSelect = document.getElementById('profile');
     const allowMissingCheckbox = document.getElementById('allowMissing');
     const groupsEl = document.getElementById('groups');
     const applyBtn = document.getElementById('applyBtn');
     const warningEl = document.getElementById('warning');
+    const lineItemsSection = document.getElementById('lineItemsSection');
+    const lineItemsHeaderRow = document.getElementById('lineItemsHeaderRow');
+    const lineItemsBody = document.getElementById('lineItemsBody');
+    const addLineBtn = document.getElementById('addLineBtn');
 
     function currentProfile() {
       return profileSelect.value;
@@ -222,6 +264,14 @@ export class FacturXFormPanelManager {
       return PROFILE_ORDER.indexOf(currentProfile()) >= PROFILE_ORDER.indexOf(field.availableFrom || 'minimum');
     }
 
+    function lineItemsAvailable() {
+      return PROFILE_ORDER.indexOf(currentProfile()) >= PROFILE_ORDER.indexOf(lineItemsAvailableFrom);
+    }
+
+    function lineHasAnyValue(line) {
+      return lineItemFields.some((f) => (line[f.id] || '').trim() !== '');
+    }
+
     function render() {
       groupsEl.innerHTML = '';
       const byGroup = new Map();
@@ -242,7 +292,56 @@ export class FacturXFormPanelManager {
         fieldset.appendChild(grid);
         groupsEl.appendChild(fieldset);
       }
+      renderLineItems();
       updateValidity();
+    }
+
+    function renderLineItems() {
+      const available = lineItemsAvailable();
+      lineItemsSection.classList.toggle('unavailable', !available);
+      addLineBtn.disabled = !available;
+
+      lineItemsHeaderRow.innerHTML = '';
+      for (const field of lineItemFields) {
+        const th = document.createElement('th');
+        th.textContent = field.label;
+        th.title = field.description;
+        lineItemsHeaderRow.appendChild(th);
+      }
+      lineItemsHeaderRow.appendChild(document.createElement('th'));
+
+      lineItemsBody.innerHTML = '';
+      lineItems.forEach((line, index) => {
+        const row = document.createElement('tr');
+        for (const field of lineItemFields) {
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = field.type === 'number' ? 'text' : field.type;
+          input.value = line[field.id] ?? field.default ?? '';
+          input.placeholder = field.default ?? '';
+          input.disabled = !available;
+          input.addEventListener('input', () => {
+            line[field.id] = input.value;
+            updateValidity();
+          });
+          td.appendChild(input);
+          row.appendChild(td);
+        }
+        const removeTd = document.createElement('td');
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'lineRemoveBtn';
+        removeBtn.textContent = 'x';
+        removeBtn.title = 'Remove this line';
+        removeBtn.addEventListener('click', () => {
+          lineItems.splice(index, 1);
+          renderLineItems();
+          updateValidity();
+        });
+        removeTd.appendChild(removeBtn);
+        row.appendChild(removeTd);
+        lineItemsBody.appendChild(row);
+      });
     }
 
     function renderField(field) {
@@ -297,6 +396,9 @@ export class FacturXFormPanelManager {
         el.classList.toggle('missing', mandatory && empty && !allowMissing);
         if (mandatory && empty) { missing.push(field.label); }
       }
+      if (lineItemsAvailable() && !lineItems.some(lineHasAnyValue)) {
+        missing.push('at least one invoice line');
+      }
       if (allowMissing) {
         applyBtn.disabled = false;
         warningEl.textContent = missing.length ? ('Will omit: ' + missing.join(', ')) : '';
@@ -308,6 +410,11 @@ export class FacturXFormPanelManager {
 
     profileSelect.addEventListener('change', render);
     allowMissingCheckbox.addEventListener('change', updateValidity);
+    addLineBtn.addEventListener('click', () => {
+      lineItems.push({});
+      renderLineItems();
+      updateValidity();
+    });
 
     applyBtn.addEventListener('click', () => {
       const payload = Object.assign({}, values);
@@ -316,7 +423,13 @@ export class FacturXFormPanelManager {
           payload[field.id] = displayToStorage(payload[field.id]);
         }
       }
-      vscodeApi.postMessage({ type: 'apply', profile: currentProfile(), values: payload });
+      const linesPayload = lineItems.filter(lineHasAnyValue);
+      vscodeApi.postMessage({
+        type: 'apply',
+        profile: currentProfile(),
+        values: payload,
+        lineItems: linesPayload,
+      });
     });
     document.getElementById('reloadBtn').addEventListener('click', () => {
       vscodeApi.postMessage({ type: 'reload' });
@@ -328,6 +441,9 @@ export class FacturXFormPanelManager {
       fields = message.fields;
       profiles = message.profiles;
       values = Object.assign({}, message.values);
+      lineItemFields = message.lineItemFields || [];
+      lineItemsAvailableFrom = message.lineItemsAvailableFrom || 'basic';
+      lineItems = (message.lineItems || []).map((line) => Object.assign({}, line));
       const previousProfile = profileSelect.value;
       profileSelect.innerHTML = '';
       for (const p of profiles) {
