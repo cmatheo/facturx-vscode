@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   FIELD_DEFS,
   LINE_ITEM_FIELD_DEFS,
+  VAT_BREAKDOWN_FIELD_DEFS,
   buildCiiInvoiceXml,
   extractFieldValues,
   extractLineItems,
+  extractVatBreakdown,
   isFieldMandatory,
 } from '../src/facturxFields';
 import { detectFacturXProfile } from '../src/facturxProfile';
@@ -37,6 +39,14 @@ function fullLineItem(): Record<string, string> {
   return line;
 }
 
+function fullVatEntry(): Record<string, string> {
+  const entry: Record<string, string> = {};
+  for (const field of VAT_BREAKDOWN_FIELD_DEFS) {
+    entry[field.id] = field.default ?? `TEST-${field.id}`;
+  }
+  return entry;
+}
+
 describe('buildCiiInvoiceXml', () => {
   it('round-trips the declared profile through detectFacturXProfile', () => {
     for (const profile of ['minimum', 'basicwl', 'basic', 'en16931', 'extended'] as const) {
@@ -52,15 +62,15 @@ describe('buildCiiInvoiceXml', () => {
   });
 
   it('produces XSD-valid XML for basicwl (address details, VAT breakdown, payment means/terms) with all mandatory fields filled', async () => {
-    const xml = buildCiiInvoiceXml('basicwl', fullValues());
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [fullVatEntry()]);
     const errors = await validateAgainstXsd(extensionUri, 'basicwl', xml);
     expect(errors).toEqual([]);
   });
 
   it.each(['basic', 'en16931', 'extended'] as const)(
-    'produces XSD-valid XML for %s with a filled-in line item',
+    'produces XSD-valid XML for %s with a filled-in line item and VAT breakdown',
     async (profile) => {
-      const xml = buildCiiInvoiceXml(profile, fullValues(), [fullLineItem()]);
+      const xml = buildCiiInvoiceXml(profile, fullValues(), [fullLineItem()], [fullVatEntry()]);
       const errors = await validateAgainstXsd(extensionUri, profile, xml);
       expect(errors).toEqual([]);
     },
@@ -69,26 +79,72 @@ describe('buildCiiInvoiceXml', () => {
   it.each(['basic', 'en16931', 'extended'] as const)(
     'fails XSD validation for %s when no line item is given, since at least one is required',
     async (profile) => {
-      const xml = buildCiiInvoiceXml(profile, fullValues(), []);
+      const xml = buildCiiInvoiceXml(profile, fullValues(), [], [fullVatEntry()]);
       const errors = await validateAgainstXsd(extensionUri, profile, xml);
       expect(errors.length).toBeGreaterThan(0);
     },
   );
 
+  it.each(['basicwl', 'basic', 'en16931', 'extended'] as const)(
+    'fails XSD validation for %s when no VAT breakdown is given, since at least one is required',
+    async (profile) => {
+      const xml = buildCiiInvoiceXml(profile, fullValues(), [fullLineItem()], []);
+      const errors = await validateAgainstXsd(extensionUri, profile, xml);
+      expect(errors.length).toBeGreaterThan(0);
+    },
+  );
+
+  it('supports multiple VAT breakdown rows for a multi-rate invoice, in the order given', async () => {
+    const standard = { ...fullVatEntry(), vatCategoryCode: 'S', vatRatePercent: '20.00', vatBasisAmount: '100.00', vatCalculatedAmount: '20.00' };
+    const reduced = { ...fullVatEntry(), vatCategoryCode: 'S', vatRatePercent: '5.50', vatBasisAmount: '50.00', vatCalculatedAmount: '2.75' };
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [standard, reduced]);
+
+    expect(xml.match(/<ram:ApplicableTradeTax>/g)?.length).toBe(2);
+    const firstIndex = xml.indexOf('20.00');
+    const secondIndex = xml.indexOf('5.50');
+    expect(firstIndex).toBeGreaterThan(-1);
+    expect(secondIndex).toBeGreaterThan(firstIndex);
+
+    const errors = await validateAgainstXsd(extensionUri, 'basicwl', xml);
+    expect(errors).toEqual([]);
+  });
+
+  it('omits a VAT breakdown row that is entirely blank rather than emitting an empty element', () => {
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [{}, fullVatEntry(), {}]);
+    expect(xml.match(/<ram:ApplicableTradeTax>/g)?.length).toBe(1);
+  });
+
+  it('does not emit ApplicableTradeTax breakdown rows for minimum even if given, since minimum schema omits header VAT breakdown entirely', () => {
+    const xml = buildCiiInvoiceXml('minimum', fullValues(), [], [fullVatEntry()]);
+    expect(xml).not.toContain('ApplicableTradeTax');
+  });
+
+  it('places the VAT breakdown after SpecifiedTradeSettlementPaymentMeans and before SpecifiedTradePaymentTerms', () => {
+    const values = fullValues();
+    values.paymentMeansTypeCode = '58';
+    const xml = buildCiiInvoiceXml('basicwl', values, [], [fullVatEntry()]);
+    const paymentMeansIndex = xml.indexOf('<ram:SpecifiedTradeSettlementPaymentMeans>');
+    const vatIndex = xml.indexOf('<ram:ApplicableTradeTax>');
+    const paymentTermsIndex = xml.indexOf('<ram:SpecifiedTradePaymentTerms>');
+    expect(paymentMeansIndex).toBeGreaterThan(-1);
+    expect(vatIndex).toBeGreaterThan(paymentMeansIndex);
+    expect(vatIndex).toBeLessThan(paymentTermsIndex);
+  });
+
   it('omits a line item that is entirely blank rather than emitting an empty element', () => {
-    const xml = buildCiiInvoiceXml('basic', fullValues(), [{}, fullLineItem(), {}]);
+    const xml = buildCiiInvoiceXml('basic', fullValues(), [{}, fullLineItem(), {}], [fullVatEntry()]);
     expect(xml.match(/<ram:IncludedSupplyChainTradeLineItem>/g)?.length).toBe(1);
   });
 
   it('does not emit IncludedSupplyChainTradeLineItem at all for basicwl even if line items are passed in, since basicwl schema omits the element', async () => {
-    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [fullLineItem()]);
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [fullLineItem()], [fullVatEntry()]);
     expect(xml).not.toContain('IncludedSupplyChainTradeLineItem');
     const errors = await validateAgainstXsd(extensionUri, 'basicwl', xml);
     expect(errors).toEqual([]);
   });
 
   it('places the header LineTotalAmount before TaxBasisTotalAmount in the monetary summation', () => {
-    const xml = buildCiiInvoiceXml('basicwl', fullValues());
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [fullVatEntry()]);
     const lineTotalIndex = xml.indexOf('<ram:LineTotalAmount>');
     const taxBasisIndex = xml.indexOf('<ram:TaxBasisTotalAmount>');
     expect(lineTotalIndex).toBeGreaterThan(-1);
@@ -96,7 +152,7 @@ describe('buildCiiInvoiceXml', () => {
   });
 
   it('places PostcodeCode before LineOne in a postal address', () => {
-    const xml = buildCiiInvoiceXml('basicwl', fullValues());
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [fullVatEntry()]);
     const postcodeIndex = xml.indexOf('<ram:PostcodeCode>');
     const lineOneIndex = xml.indexOf('<ram:LineOne>');
     expect(postcodeIndex).toBeGreaterThan(-1);
@@ -269,6 +325,49 @@ describe('extractLineItems', () => {
     expect(() =>
       extractLineItems('<ram:IncludedSupplyChainTradeLineItem><ram:Name>unclosed'),
     ).not.toThrow();
+  });
+});
+
+describe('extractVatBreakdown', () => {
+  it('recovers a single VAT breakdown row generated by buildCiiInvoiceXml', () => {
+    const entry = fullVatEntry();
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [entry]);
+    const extracted = extractVatBreakdown(xml);
+    expect(extracted).toHaveLength(1);
+    for (const field of VAT_BREAKDOWN_FIELD_DEFS) {
+      expect(extracted[0][field.id]).toBe(entry[field.id]);
+    }
+  });
+
+  it('recovers multiple VAT breakdown rows in document order', () => {
+    const standard = { ...fullVatEntry(), vatRatePercent: '20.00' };
+    const reduced = { ...fullVatEntry(), vatRatePercent: '5.50' };
+    const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [standard, reduced]);
+    const extracted = extractVatBreakdown(xml);
+    expect(extracted).toHaveLength(2);
+    expect(extracted[0].vatRatePercent).toBe('20.00');
+    expect(extracted[1].vatRatePercent).toBe('5.50');
+  });
+
+  it('does not pick up a line item\'s own ApplicableTradeTax as a header breakdown row', () => {
+    const line = { ...fullLineItem(), vatRatePercent: '10.00' };
+    const headerEntry = { ...fullVatEntry(), vatRatePercent: '20.00' };
+    const xml = buildCiiInvoiceXml('basic', fullValues(), [line], [headerEntry]);
+    const extracted = extractVatBreakdown(xml);
+    expect(extracted).toHaveLength(1);
+    expect(extracted[0].vatRatePercent).toBe('20.00');
+  });
+
+  it('returns an empty array for XML with no header VAT breakdown', () => {
+    expect(extractVatBreakdown(buildCiiInvoiceXml('minimum', fullValues()))).toEqual([]);
+  });
+
+  it('returns an empty array for completely empty input', () => {
+    expect(extractVatBreakdown('')).toEqual([]);
+  });
+
+  it('does not throw on malformed/unclosed markup', () => {
+    expect(() => extractVatBreakdown('<ram:ApplicableHeaderTradeSettlement><ram:ApplicableTradeTax>unclosed')).not.toThrow();
   });
 });
 

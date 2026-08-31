@@ -249,61 +249,9 @@ export const FIELD_DEFS: FieldDef[] = [
     mandatoryFor: [],
     availableFrom: 'basicwl',
   },
-  {
-    id: 'vatCalculatedAmount',
-    group: 'VAT breakdown',
-    label: 'VAT amount',
-    description: 'Tax amount for this VAT category/rate (single breakdown line - see note below).',
-    type: 'number',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CalculatedAmount'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-    default: '0.00',
-  },
-  {
-    id: 'vatTypeCode',
-    group: 'VAT breakdown',
-    label: 'Tax type code',
-    description: 'UNTDID 5153 tax type code. VAT for standard European value-added tax.',
-    type: 'text',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:TypeCode'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-    default: 'VAT',
-  },
-  {
-    id: 'vatBasisAmount',
-    group: 'VAT breakdown',
-    label: 'VAT basis amount',
-    description: 'Amount this VAT rate applies to (should match the tax basis total for a single-rate invoice).',
-    type: 'number',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:BasisAmount'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-    default: '0.00',
-  },
-  {
-    id: 'vatCategoryCode',
-    group: 'VAT breakdown',
-    label: 'VAT category code',
-    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
-    type: 'text',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CategoryCode'],
-    mandatoryFor: FROM_BASICWL,
-    availableFrom: 'basicwl',
-    default: 'S',
-  },
-  {
-    id: 'vatRatePercent',
-    group: 'VAT breakdown',
-    label: 'VAT rate (%)',
-    description: 'Applicable VAT rate as a percentage (e.g. 20.00).',
-    type: 'number',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:ApplicableTradeTax', 'ram:RateApplicablePercent'],
-    mandatoryFor: [],
-    availableFrom: 'basicwl',
-    default: '20.00',
-  },
+  // VAT breakdown (ApplicableTradeTax) is a repeatable header structure - see
+  // VAT_BREAKDOWN_FIELD_DEFS/buildVatBreakdownNode below, not FIELD_DEFS, since a
+  // single-value FieldDef can't represent "zero or more" entries.
   {
     id: 'paymentDueDate',
     group: 'Payment & totals',
@@ -406,6 +354,75 @@ export const LINE_ITEMS_AVAILABLE_FROM: FacturXProfile = 'basic';
 export function areLineItemsAvailable(profile: FacturXProfile): boolean {
   return ALL_PROFILES.indexOf(profile) >= ALL_PROFILES.indexOf(LINE_ITEMS_AVAILABLE_FROM);
 }
+
+/** The least rich profile whose schema requires a VAT breakdown (ApplicableTradeTax) at header level. */
+export const VAT_BREAKDOWN_AVAILABLE_FROM: FacturXProfile = 'basicwl';
+
+export function isVatBreakdownAvailable(profile: FacturXProfile): boolean {
+  return ALL_PROFILES.indexOf(profile) >= ALL_PROFILES.indexOf(VAT_BREAKDOWN_AVAILABLE_FROM);
+}
+
+/**
+ * One column of a VAT breakdown row. Kept separate from FieldDef/FIELD_DEFS since,
+ * like line items, a header can carry zero or more of these (one per distinct VAT
+ * category/rate on the invoice) rather than a single document-wide value. `xmlLeaf`
+ * is relative to one <ram:ApplicableTradeTax> element under
+ * ApplicableHeaderTradeSettlement.
+ */
+export interface VatBreakdownFieldDef {
+  id: string;
+  label: string;
+  description: string;
+  type: FieldType;
+  xmlLeaf: string[];
+  default?: string;
+}
+
+// Order matches TradeTaxType's schema sequence: CalculatedAmount, TypeCode,
+// ExemptionReason, BasisAmount, CategoryCode, ExemptionReasonCode, DueDateTypeCode,
+// RateApplicablePercent (the unused optional exemption/due-date fields are skipped).
+export const VAT_BREAKDOWN_FIELD_DEFS: VatBreakdownFieldDef[] = [
+  {
+    id: 'vatCalculatedAmount',
+    label: 'VAT amount',
+    description: 'Tax amount for this VAT category/rate.',
+    type: 'number',
+    xmlLeaf: ['ram:CalculatedAmount'],
+    default: '0.00',
+  },
+  {
+    id: 'vatTypeCode',
+    label: 'Tax type code',
+    description: 'UNTDID 5153 tax type code. VAT for standard European value-added tax.',
+    type: 'text',
+    xmlLeaf: ['ram:TypeCode'],
+    default: 'VAT',
+  },
+  {
+    id: 'vatBasisAmount',
+    label: 'VAT basis amount',
+    description: 'Amount this VAT rate applies to (the sum of the tax basis amounts across breakdown rows should match the invoice tax basis total).',
+    type: 'number',
+    xmlLeaf: ['ram:BasisAmount'],
+    default: '0.00',
+  },
+  {
+    id: 'vatCategoryCode',
+    label: 'VAT category code',
+    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
+    type: 'text',
+    xmlLeaf: ['ram:CategoryCode'],
+    default: 'S',
+  },
+  {
+    id: 'vatRatePercent',
+    label: 'VAT rate (%)',
+    description: 'Applicable VAT rate as a percentage (e.g. 20.00).',
+    type: 'number',
+    xmlLeaf: ['ram:RateApplicablePercent'],
+    default: '20.00',
+  },
+];
 
 /**
  * One column of an invoice line row. Kept separate from FieldDef/FIELD_DEFS since
@@ -572,6 +589,24 @@ function buildLineItemNode(line: Record<string, string>): XmlNode | undefined {
   return lineNode;
 }
 
+/** Builds one <ram:ApplicableTradeTax> header breakdown node, or undefined if every field in `entry` is empty. */
+function buildVatBreakdownNode(entry: Record<string, string>): XmlNode | undefined {
+  const hasAnyValue = VAT_BREAKDOWN_FIELD_DEFS.some((field) => (entry[field.id] ?? '').trim() !== '');
+  if (!hasAnyValue) {
+    return undefined;
+  }
+  const taxNode = node('ram:ApplicableTradeTax');
+  for (const field of VAT_BREAKDOWN_FIELD_DEFS) {
+    const raw = entry[field.id];
+    if (raw === undefined || raw.trim() === '') {
+      continue;
+    }
+    const target = descend(taxNode, field.xmlLeaf, true)!;
+    target.text = raw;
+  }
+  return taxNode;
+}
+
 /**
  * Builds a full CII invoice XML document from form field values. Fields whose value
  * is empty/absent are omitted entirely (rather than emitted as empty tags) so that,
@@ -583,6 +618,7 @@ export function buildCiiInvoiceXml(
   profile: FacturXProfile,
   values: Record<string, string>,
   lineItems: Array<Record<string, string>> = [],
+  vatBreakdown: Array<Record<string, string>> = [],
 ): string {
   const root = node('rsm:CrossIndustryInvoice');
 
@@ -643,6 +679,25 @@ export function buildCiiInvoiceXml(
     target.text = raw;
     if (field.attribute) {
       target.attributes.push(field.attribute);
+    }
+  }
+
+  // Insert the (possibly multi-rate) VAT breakdown - one <ram:ApplicableTradeTax>
+  // per entry - right after SpecifiedTradeSettlementPaymentMeans and before
+  // SpecifiedTradePaymentTerms/SpecifiedTradeSettlementHeaderMonetarySummation,
+  // matching HeaderTradeSettlementType's schema sequence. Repeatable siblings can't
+  // be built via descend() (it finds/reuses the *first* child with a matching name),
+  // so each row is built as an independent node and spliced into settlement.children
+  // at the right position instead.
+  if (isVatBreakdownAvailable(profile) && vatBreakdown.length > 0) {
+    const nodes = vatBreakdown
+      .map(buildVatBreakdownNode)
+      .filter((n): n is XmlNode => n !== undefined);
+    if (nodes.length > 0) {
+      const insertAt = settlement.children.findIndex(
+        (c) => c.name === 'ram:SpecifiedTradePaymentTerms' || c.name === 'ram:SpecifiedTradeSettlementHeaderMonetarySummation',
+      );
+      settlement.children.splice(insertAt === -1 ? settlement.children.length : insertAt, 0, ...nodes);
     }
   }
 
@@ -724,6 +779,32 @@ export function extractLineItems(xml: string): Array<Record<string, string>> {
   return blocks.map((block) => {
     const values: Record<string, string> = {};
     for (const field of LINE_ITEM_FIELD_DEFS) {
+      const value = narrowToPath(block, field.xmlLeaf);
+      if (value !== undefined) {
+        values[field.id] = value;
+      }
+    }
+    return values;
+  });
+}
+
+/**
+ * Best-effort extraction of the header VAT breakdown, one entry per
+ * <ram:ApplicableTradeTax> block directly under ApplicableHeaderTradeSettlement.
+ * Deliberately scoped to just that element's content first, since ApplicableTradeTax
+ * also appears once per invoice line (under SpecifiedLineTradeSettlement) - matching
+ * globally would mix header- and line-level breakdown rows together. Same
+ * non-parser caveats as extractFieldValues.
+ */
+export function extractVatBreakdown(xml: string): Array<Record<string, string>> {
+  const settlementScope = narrowToPath(xml, ['ram:ApplicableHeaderTradeSettlement']);
+  if (settlementScope === undefined) {
+    return [];
+  }
+  const blocks = settlementScope.match(/<ram:ApplicableTradeTax>[\s\S]*?<\/ram:ApplicableTradeTax>/g) ?? [];
+  return blocks.map((block) => {
+    const values: Record<string, string> = {};
+    for (const field of VAT_BREAKDOWN_FIELD_DEFS) {
       const value = narrowToPath(block, field.xmlLeaf);
       if (value !== undefined) {
         values[field.id] = value;

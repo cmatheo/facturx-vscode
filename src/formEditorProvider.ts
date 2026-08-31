@@ -4,9 +4,12 @@ import {
   FIELD_DEFS,
   LINE_ITEM_FIELD_DEFS,
   LINE_ITEMS_AVAILABLE_FROM,
+  VAT_BREAKDOWN_FIELD_DEFS,
+  VAT_BREAKDOWN_AVAILABLE_FROM,
   buildCiiInvoiceXml,
   extractFieldValues,
   extractLineItems,
+  extractVatBreakdown,
 } from './facturxFields';
 
 const ALL_PROFILES: FacturXProfile[] = ['minimum', 'basicwl', 'basic', 'en16931', 'extended'];
@@ -79,7 +82,13 @@ export class FacturXFormPanelManager {
         if (message?.type === 'ready' || message?.type === 'reload') {
           await this.postInitialValues(current);
         } else if (message?.type === 'apply') {
-          await this.applyXml(current.xmlUri, message.profile, message.values, message.lineItems ?? []);
+          await this.applyXml(
+            current.xmlUri,
+            message.profile,
+            message.values,
+            message.lineItems ?? [],
+            message.vatBreakdown ?? [],
+          );
         } else if (message?.type === 'error') {
           vscode.window.showErrorMessage(
             vscode.l10n.t('Factur-X field form error: {0}', String(message.message)),
@@ -106,9 +115,11 @@ export class FacturXFormPanelManager {
 
     let values: Record<string, string> = {};
     let lineItems: Array<Record<string, string>> = [];
+    let vatBreakdown: Array<Record<string, string>> = [];
     try {
       values = xml ? extractFieldValues(xml) : {};
       lineItems = xml ? extractLineItems(xml) : [];
+      vatBreakdown = xml ? extractVatBreakdown(xml) : [];
     } catch (error) {
       vscode.window.showErrorMessage(
         vscode.l10n.t('Failed to read current field values from the XML: {0}', String(error)),
@@ -138,6 +149,15 @@ export class FacturXFormPanelManager {
       })),
       lineItemsAvailableFrom: LINE_ITEMS_AVAILABLE_FROM,
       lineItems,
+      vatBreakdownFields: VAT_BREAKDOWN_FIELD_DEFS.map((field) => ({
+        id: field.id,
+        label: field.label,
+        description: field.description,
+        type: field.type,
+        default: field.default,
+      })),
+      vatBreakdownAvailableFrom: VAT_BREAKDOWN_AVAILABLE_FROM,
+      vatBreakdown,
     });
   }
 
@@ -146,9 +166,10 @@ export class FacturXFormPanelManager {
     profile: FacturXProfile,
     values: Record<string, string>,
     lineItems: Array<Record<string, string>>,
+    vatBreakdown: Array<Record<string, string>>,
   ): Promise<void> {
     const document = await vscode.workspace.openTextDocument(xmlUri);
-    const xml = buildCiiInvoiceXml(profile, values, lineItems);
+    const xml = buildCiiInvoiceXml(profile, values, lineItems, vatBreakdown);
     const edit = new vscode.WorkspaceEdit();
     edit.replace(xmlUri, new vscode.Range(0, 0, document.lineCount, 0), xml);
     await vscode.workspace.applyEdit(edit);
@@ -182,14 +203,14 @@ export class FacturXFormPanelManager {
   #applyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
   #warning { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 12px; }
   #grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
-  #lineItemsSection { margin-bottom: 10px; }
-  #lineItemsSection.unavailable { opacity: 0.5; }
-  #lineItemsTable { width: 100%; border-collapse: collapse; }
-  #lineItemsTable th { text-align: left; font-weight: 600; font-size: 11px; color: var(--vscode-descriptionForeground); padding: 2px 4px; }
-  #lineItemsTable td { padding: 2px 4px; }
-  #lineItemsTable input { min-width: 70px; }
-  #lineItemsTable .lineRemoveBtn { color: var(--vscode-editorError-foreground, #f14c4c); background: none; border: none; }
-  #addLineBtn { margin-top: 4px; }
+  .repeatableSection { margin-bottom: 10px; }
+  .repeatableSection.unavailable { opacity: 0.5; }
+  .repeatableTable { width: 100%; border-collapse: collapse; }
+  .repeatableTable th { text-align: left; font-weight: 600; font-size: 11px; color: var(--vscode-descriptionForeground); padding: 2px 4px; }
+  .repeatableTable td { padding: 2px 4px; }
+  .repeatableTable input { min-width: 70px; }
+  .repeatableTable .rowRemoveBtn { color: var(--vscode-editorError-foreground, #f14c4c); background: none; border: none; }
+  .repeatableSection button.addRowBtn { margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -201,13 +222,21 @@ export class FacturXFormPanelManager {
     <span id="warning"></span>
   </div>
   <div id="groups"></div>
-  <fieldset id="lineItemsSection">
+  <fieldset id="lineItemsSection" class="repeatableSection">
     <legend>Invoice lines</legend>
-    <table id="lineItemsTable">
+    <table id="lineItemsTable" class="repeatableTable">
       <thead><tr id="lineItemsHeaderRow"></tr></thead>
       <tbody id="lineItemsBody"></tbody>
     </table>
-    <button id="addLineBtn">Add line</button>
+    <button id="addLineBtn" class="addRowBtn">Add line</button>
+  </fieldset>
+  <fieldset id="vatSection" class="repeatableSection">
+    <legend>VAT breakdown</legend>
+    <table id="vatTable" class="repeatableTable">
+      <thead><tr id="vatHeaderRow"></tr></thead>
+      <tbody id="vatBody"></tbody>
+    </table>
+    <button id="addVatBtn" class="addRowBtn">Add VAT rate</button>
   </fieldset>
   <script nonce="${nonce}">
     const vscodeApi = acquireVsCodeApi();
@@ -221,6 +250,9 @@ export class FacturXFormPanelManager {
     let lineItemFields = [];
     let lineItemsAvailableFrom = 'basic';
     let lineItems = [];
+    let vatBreakdownFields = [];
+    let vatBreakdownAvailableFrom = 'basicwl';
+    let vatBreakdown = [];
 
     const profileSelect = document.getElementById('profile');
     const allowMissingCheckbox = document.getElementById('allowMissing');
@@ -231,6 +263,10 @@ export class FacturXFormPanelManager {
     const lineItemsHeaderRow = document.getElementById('lineItemsHeaderRow');
     const lineItemsBody = document.getElementById('lineItemsBody');
     const addLineBtn = document.getElementById('addLineBtn');
+    const vatSection = document.getElementById('vatSection');
+    const vatHeaderRow = document.getElementById('vatHeaderRow');
+    const vatBody = document.getElementById('vatBody');
+    const addVatBtn = document.getElementById('addVatBtn');
 
     function currentProfile() {
       return profileSelect.value;
@@ -260,16 +296,24 @@ export class FacturXFormPanelManager {
       return field.mandatoryFor.includes(currentProfile());
     }
 
+    function isProfileAtLeast(from) {
+      return PROFILE_ORDER.indexOf(currentProfile()) >= PROFILE_ORDER.indexOf(from || 'minimum');
+    }
+
     function isAvailable(field) {
-      return PROFILE_ORDER.indexOf(currentProfile()) >= PROFILE_ORDER.indexOf(field.availableFrom || 'minimum');
+      return isProfileAtLeast(field.availableFrom);
     }
 
     function lineItemsAvailable() {
-      return PROFILE_ORDER.indexOf(currentProfile()) >= PROFILE_ORDER.indexOf(lineItemsAvailableFrom);
+      return isProfileAtLeast(lineItemsAvailableFrom);
     }
 
-    function lineHasAnyValue(line) {
-      return lineItemFields.some((f) => (line[f.id] || '').trim() !== '');
+    function vatBreakdownAvailable() {
+      return isProfileAtLeast(vatBreakdownAvailableFrom);
+    }
+
+    function rowHasAnyValue(fieldsList, item) {
+      return fieldsList.some((f) => (item[f.id] || '').trim() !== '');
     }
 
     function render() {
@@ -293,35 +337,37 @@ export class FacturXFormPanelManager {
         groupsEl.appendChild(fieldset);
       }
       renderLineItems();
+      renderVatBreakdown();
       updateValidity();
     }
 
-    function renderLineItems() {
-      const available = lineItemsAvailable();
-      lineItemsSection.classList.toggle('unavailable', !available);
-      addLineBtn.disabled = !available;
-
-      lineItemsHeaderRow.innerHTML = '';
-      for (const field of lineItemFields) {
+    // Shared renderer for both "zero or more rows" sections (invoice lines, VAT
+    // breakdown): builds a header row from fieldsList's labels and one table row per
+    // entry in itemsList, mutating itemsList in place (push/splice) rather than
+    // reassigning it, so the caller's own lineItems/vatBreakdown variable binding
+    // stays valid across re-renders.
+    function renderRepeatableTable(fieldsList, itemsList, available, headerRowEl, bodyEl, onChange) {
+      headerRowEl.innerHTML = '';
+      for (const field of fieldsList) {
         const th = document.createElement('th');
         th.textContent = field.label;
         th.title = field.description;
-        lineItemsHeaderRow.appendChild(th);
+        headerRowEl.appendChild(th);
       }
-      lineItemsHeaderRow.appendChild(document.createElement('th'));
+      headerRowEl.appendChild(document.createElement('th'));
 
-      lineItemsBody.innerHTML = '';
-      lineItems.forEach((line, index) => {
+      bodyEl.innerHTML = '';
+      itemsList.forEach((item, index) => {
         const row = document.createElement('tr');
-        for (const field of lineItemFields) {
+        for (const field of fieldsList) {
           const td = document.createElement('td');
           const input = document.createElement('input');
           input.type = field.type === 'number' ? 'text' : field.type;
-          input.value = line[field.id] ?? field.default ?? '';
+          input.value = item[field.id] ?? field.default ?? '';
           input.placeholder = field.default ?? '';
           input.disabled = !available;
           input.addEventListener('input', () => {
-            line[field.id] = input.value;
+            item[field.id] = input.value;
             updateValidity();
           });
           td.appendChild(input);
@@ -330,18 +376,32 @@ export class FacturXFormPanelManager {
         const removeTd = document.createElement('td');
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.className = 'lineRemoveBtn';
+        removeBtn.className = 'rowRemoveBtn';
         removeBtn.textContent = 'x';
-        removeBtn.title = 'Remove this line';
+        removeBtn.title = 'Remove this row';
         removeBtn.addEventListener('click', () => {
-          lineItems.splice(index, 1);
-          renderLineItems();
+          itemsList.splice(index, 1);
+          onChange();
           updateValidity();
         });
         removeTd.appendChild(removeBtn);
         row.appendChild(removeTd);
-        lineItemsBody.appendChild(row);
+        bodyEl.appendChild(row);
       });
+    }
+
+    function renderLineItems() {
+      const available = lineItemsAvailable();
+      lineItemsSection.classList.toggle('unavailable', !available);
+      addLineBtn.disabled = !available;
+      renderRepeatableTable(lineItemFields, lineItems, available, lineItemsHeaderRow, lineItemsBody, renderLineItems);
+    }
+
+    function renderVatBreakdown() {
+      const available = vatBreakdownAvailable();
+      vatSection.classList.toggle('unavailable', !available);
+      addVatBtn.disabled = !available;
+      renderRepeatableTable(vatBreakdownFields, vatBreakdown, available, vatHeaderRow, vatBody, renderVatBreakdown);
     }
 
     function renderField(field) {
@@ -396,8 +456,11 @@ export class FacturXFormPanelManager {
         el.classList.toggle('missing', mandatory && empty && !allowMissing);
         if (mandatory && empty) { missing.push(field.label); }
       }
-      if (lineItemsAvailable() && !lineItems.some(lineHasAnyValue)) {
+      if (lineItemsAvailable() && !lineItems.some((line) => rowHasAnyValue(lineItemFields, line))) {
         missing.push('at least one invoice line');
+      }
+      if (vatBreakdownAvailable() && !vatBreakdown.some((entry) => rowHasAnyValue(vatBreakdownFields, entry))) {
+        missing.push('at least one VAT breakdown row');
       }
       if (allowMissing) {
         applyBtn.disabled = false;
@@ -415,6 +478,11 @@ export class FacturXFormPanelManager {
       renderLineItems();
       updateValidity();
     });
+    addVatBtn.addEventListener('click', () => {
+      vatBreakdown.push({});
+      renderVatBreakdown();
+      updateValidity();
+    });
 
     applyBtn.addEventListener('click', () => {
       const payload = Object.assign({}, values);
@@ -423,12 +491,14 @@ export class FacturXFormPanelManager {
           payload[field.id] = displayToStorage(payload[field.id]);
         }
       }
-      const linesPayload = lineItems.filter(lineHasAnyValue);
+      const linesPayload = lineItems.filter((line) => rowHasAnyValue(lineItemFields, line));
+      const vatPayload = vatBreakdown.filter((entry) => rowHasAnyValue(vatBreakdownFields, entry));
       vscodeApi.postMessage({
         type: 'apply',
         profile: currentProfile(),
         values: payload,
         lineItems: linesPayload,
+        vatBreakdown: vatPayload,
       });
     });
     document.getElementById('reloadBtn').addEventListener('click', () => {
@@ -444,6 +514,9 @@ export class FacturXFormPanelManager {
       lineItemFields = message.lineItemFields || [];
       lineItemsAvailableFrom = message.lineItemsAvailableFrom || 'basic';
       lineItems = (message.lineItems || []).map((line) => Object.assign({}, line));
+      vatBreakdownFields = message.vatBreakdownFields || [];
+      vatBreakdownAvailableFrom = message.vatBreakdownAvailableFrom || 'basicwl';
+      vatBreakdown = (message.vatBreakdown || []).map((entry) => Object.assign({}, entry));
       const previousProfile = profileSelect.value;
       profileSelect.innerHTML = '';
       for (const p of profiles) {
