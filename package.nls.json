@@ -2,5 +2,6 @@
   "extension.displayName": "Factur-X Viewer",
   "extension.description": "Displays a Factur-X PDF side by side with its embedded XML, with schema validation and editing.",
   "facturx.pdfXmlEditor.displayName": "Factur-X (PDF + XML)",
-  "command.openInEditor.title": "Open with Factur-X Editor"
+  "command.openInEditor.title": "Open with Factur-X Editor",
+  "command.showFieldForm.title": "Show Field Form"
 }

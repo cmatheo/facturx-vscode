@@ -33,6 +33,12 @@
         "title": "%command.openInEditor.title%",
         "category": "Factur-X",
         "icon": "$(open-preview)"
+      },
+      {
+        "command": "facturx.showFieldForm",
+        "title": "%command.showFieldForm.title%",
+        "category": "Factur-X",
+        "icon": "$(edit)"
       }
     ],
     "menus": {

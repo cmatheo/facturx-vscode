@@ -49,6 +49,21 @@ export class FacturXXmlFileSystemProvider implements vscode.FileSystemProvider {
     return xmlUri;
   }
 
+  /** Looks up which PDF a virtual XML document belongs to, if it's currently registered. */
+  pdfUriFor(xmlUri: vscode.Uri): vscode.Uri | undefined {
+    return this.entries.get(xmlUri.toString())?.pdfUri;
+  }
+
+  /** Finds the virtual XML document currently registered for a given PDF, if any. */
+  xmlUriFor(pdfUri: vscode.Uri): vscode.Uri | undefined {
+    for (const [key, entry] of this.entries) {
+      if (entry.pdfUri.toString() === pdfUri.toString()) {
+        return vscode.Uri.parse(key);
+      }
+    }
+    return undefined;
+  }
+
   private entry(uri: vscode.Uri): XmlEntry {
     const entry = this.entries.get(uri.toString());
     if (!entry) {

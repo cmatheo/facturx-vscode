@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import { DEFAULT_XML_ATTACHMENT_NAME, extractEmbeddedXml } from './pdfAttachment';
 import { blankCiiInvoiceSkeleton } from './facturxProfile';
 import { FacturXXmlFileSystemProvider } from './xmlFileSystemProvider';
+import { FacturXFormPanelManager } from './formEditorProvider';
 
 class PdfDocument implements vscode.CustomDocument {
   constructor(readonly uri: vscode.Uri) {}
@@ -23,6 +24,7 @@ export class PdfXmlEditorProvider implements vscode.CustomReadonlyEditorProvider
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly xmlFs: FacturXXmlFileSystemProvider,
+    private readonly formPanels: FacturXFormPanelManager,
   ) {}
 
   openCustomDocument(uri: vscode.Uri): PdfDocument {
@@ -91,13 +93,32 @@ export class PdfXmlEditorProvider implements vscode.CustomReadonlyEditorProvider
     }
 
     const xmlUri = this.xmlFs.register(pdfUri, embedded.name, embedded.bytes);
+
+    // Force a 3-pane grid: PDF (left) | XML editor (top-right) / field form
+    // (bottom-right), so the form is available from the start rather than as an
+    // optional extra tab. Only done the first time this PDF is opened (i.e. no
+    // field-form panel exists for it yet) - re-running setEditorLayout on every
+    // reopen rebuilds the whole grid and can tear down the still-open form panel
+    // out from under its live webview reference, breaking postMessage to it.
+    if (!this.formPanels.has(pdfUri)) {
+      await vscode.commands.executeCommand('vscode.setEditorLayout', {
+        orientation: 0,
+        groups: [
+          { size: 0.5 },
+          { size: 0.5, orientation: 1, groups: [{ size: 0.6 }, { size: 0.4 }] },
+        ],
+      });
+    }
+
     const xmlDocument = await vscode.workspace.openTextDocument(xmlUri);
     await vscode.languages.setTextDocumentLanguage(xmlDocument, 'xml');
     await vscode.window.showTextDocument(xmlDocument, {
-      viewColumn: vscode.ViewColumn.Beside,
+      viewColumn: vscode.ViewColumn.Two,
       preview: false,
       preserveFocus: true,
     });
+
+    await this.formPanels.show(pdfUri, xmlUri, vscode.ViewColumn.Three);
   }
 
   private renderPdfHtml(webview: vscode.Webview): string {

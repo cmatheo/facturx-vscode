@@ -3,9 +3,11 @@ import { PdfXmlEditorProvider } from './pdfEditorProvider';
 import { upsertEmbeddedXml } from './pdfAttachment';
 import { FacturXXmlFileSystemProvider, XML_SCHEME } from './xmlFileSystemProvider';
 import { registerXmlValidation } from './xmlValidation';
+import { FacturXFormPanelManager } from './formEditorProvider';
 
 export function activate(context: vscode.ExtensionContext): void {
   const xmlFs = new FacturXXmlFileSystemProvider();
+  const formPanels = new FacturXFormPanelManager(context.extensionUri);
 
   registerXmlValidation(context);
 
@@ -15,7 +17,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.window.registerCustomEditorProvider(
       PdfXmlEditorProvider.viewType,
-      new PdfXmlEditorProvider(context.extensionUri, xmlFs),
+      new PdfXmlEditorProvider(context.extensionUri, xmlFs, formPanels),
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
     xmlFs.onDidSaveXml(async ({ pdfUri, attachmentName, content }) => {
@@ -57,6 +59,25 @@ export function activate(context: vscode.ExtensionContext): void {
         PdfXmlEditorProvider.viewType,
         column,
       );
+    }),
+    vscode.commands.registerCommand('facturx.showFieldForm', async () => {
+      const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+      const activeUri = tabInputUri(activeTab?.input) ?? vscode.window.activeTextEditor?.document.uri;
+      if (!activeUri) {
+        vscode.window.showErrorMessage(vscode.l10n.t('Open a Factur-X PDF file first.'));
+        return;
+      }
+
+      const pdfUri = activeUri.scheme === XML_SCHEME ? xmlFs.pdfUriFor(activeUri) : activeUri;
+      const xmlUri = pdfUri ? xmlFs.xmlUriFor(pdfUri) : undefined;
+      if (!pdfUri || !xmlUri) {
+        vscode.window.showErrorMessage(
+          vscode.l10n.t('No Factur-X field form is available for the active editor.'),
+        );
+        return;
+      }
+
+      await formPanels.show(pdfUri, xmlUri, vscode.ViewColumn.Three);
     }),
   );
 }
