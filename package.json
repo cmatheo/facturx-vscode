@@ -1,12 +1,13 @@
 {
   "name": "facturx-vscode",
-  "displayName": "Factur-X Viewer",
-  "description": "Affiche un PDF Factur-X côte à côte avec son XML embarqué, avec validation de schéma et édition.",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.0.1",
   "private": true,
   "engines": {
     "vscode": "^1.90.0"
   },
+  "l10n": "./l10n",
   "categories": [
     "Other"
   ],
@@ -18,7 +19,7 @@
     "customEditors": [
       {
         "viewType": "facturx.pdfXmlEditor",
-        "displayName": "Factur-X (PDF + XML)",
+        "displayName": "%facturx.pdfXmlEditor.displayName%",
         "selector": [
           {
             "filenamePattern": "*.pdf"
@@ -30,7 +31,8 @@
     "commands": [
       {
         "command": "facturx.openSideBySide",
-        "title": "Factur-X: Ouvrir en vue PDF/XML"
+        "title": "%command.openSideBySide.title%",
+        "category": "Factur-X"
       }
     ]
   },

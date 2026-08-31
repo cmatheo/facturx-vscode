@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
 export function activate(context: vscode.ExtensionContext) {
-  // TODO: enregistrer le CustomEditorProvider pour la vue PDF/XML côte à côte
-  console.log('facturx-vscode activated');
+  // TODO: register the CustomEditorProvider for the side-by-side PDF/XML view
+  console.log(vscode.l10n.t('Factur-X Viewer activated'));
 }
 
 export function deactivate() {}

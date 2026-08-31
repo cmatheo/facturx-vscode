@@ -1,69 +1,78 @@
-# Factur-X Viewer — extension VS Code
+# Factur-X Viewer — VS Code extension
 
-## Objectif
+## Goal
 
-Extension VS Code permettant d'ouvrir un PDF Factur-X et d'afficher **côte à côte** :
-- le rendu du PDF,
-- le XML CII (Cross Industry Invoice) qui y est embarqué,
+A VS Code extension that opens a Factur-X PDF and displays **side by side**:
+- the rendered PDF,
+- the embedded CII (Cross Industry Invoice) XML it carries,
 
-avec **validation du XML contre le schéma Factur-X** (XSD) et possibilité de **modifier ce XML**.
+with **validation of the XML against the Factur-X schema** (XSD) and the ability to **edit that XML**.
 
-Portée actuelle : usage exclusivement au sein de VS Code (pas de CLI, pas de service web séparé) dans un premier temps.
+Current scope: usable entirely from within VS Code (no CLI, no separate web service) for now.
 
-## Contexte métier
+## Business context
 
-Factur-X (norme franco-allemande, alignée EN 16931 / UN/CEFACT CII) est un format de facture électronique hybride : un PDF/A-3 conforme contenant, en pièce jointe embarquée, un fichier XML structuré (`factur-x.xml` généralement) qui porte les données de facturation lisibles par machine. Le PDF reste lisible par un humain, le XML est le contenu faisant foi pour le traitement automatisé.
+Factur-X (a Franco-German standard, aligned with EN 16931 / UN/CEFACT CII) is a hybrid e-invoice format: a conformant PDF/A-3 containing, as an embedded attachment, a structured XML file (typically `factur-x.xml`) carrying the machine-readable invoice data. The PDF remains human-readable, while the XML is the authoritative content for automated processing.
 
-Profils Factur-X (du plus simple au plus complet) : MINIMUM, BASIC WL, BASIC, EN 16931 (COMFORT), EXTENDED. Chaque profil a son propre XSD (dérivé du schéma CII D16B). La validation doit identifier le profil déclaré dans le XML et appliquer le XSD correspondant.
+Factur-X profiles (from simplest to most complete): MINIMUM, BASIC WL, BASIC, EN 16931 (COMFORT), EXTENDED. Each profile has its own XSD (derived from the CII D16B schema). Validation must identify the profile declared in the XML and apply the matching XSD.
 
-## Fonctionnalités visées
+## Intended features
 
-1. **Ouverture d'un PDF Factur-X**
-   - Extraction du XML embarqué (pièce jointe du PDF/A-3) sans dépendance externe lourde.
-   - Détection du profil Factur-X déclaré (`rsm:CrossIndustryInvoice` → `ExchangedDocumentContext` → paramètre de guide).
+1. **Opening a Factur-X PDF**
+   - Extraction of the embedded XML (PDF/A-3 attachment) without a heavy external dependency.
+   - Detection of the declared Factur-X profile (`rsm:CrossIndustryInvoice` → `ExchangedDocumentContext` → guideline parameter).
 
-2. **Vue côte à côte**
-   - Panneau gauche : rendu du PDF (pagination, zoom).
-   - Panneau droit : éditeur XML avec coloration syntaxique, pliage, et si possible auto-complétion/hints basés sur le XSD.
-   - Synchronisation minimale utile : pas d'obligation de scroll-sync page ↔ XML dans une v1.
+2. **Side-by-side view**
+   - Left pane: PDF rendering (pagination, zoom).
+   - Right pane: XML editor with syntax highlighting, folding, and where possible XSD-based autocomplete/hints.
+   - Minimal useful sync: no requirement for page ↔ XML scroll-sync in v1.
 
-3. **Validation de schéma**
-   - Validation XSD du XML contre le schéma correspondant au profil détecté.
-   - Affichage des erreurs de validation dans le panneau "Problems" de VS Code (diagnostics), avec ligne/colonne quand disponible.
-   - Schémas XSD Factur-X embarqués dans l'extension (vérifier la licence de redistribution FNFE-MPE avant de les committer).
+3. **Schema validation**
+   - XSD validation of the XML against the schema matching the detected profile.
+   - Validation errors surfaced in VS Code's "Problems" panel (diagnostics), with line/column when available.
+   - Factur-X XSD schemas bundled with the extension (check FNFE-MPE redistribution licensing before committing them).
 
-4. **Édition du XML**
-   - Édition libre du texte XML dans le panneau droit.
-   - Revalidation à la volée (debounced) contre le XSD.
-   - Sauvegarde : ré-injection du XML modifié dans le PDF en remplaçant la pièce jointe existante (le PDF visuel n'est pas régénéré, seul l'attachment XML change).
-   - Point de vigilance explicite : préserver au mieux la conformité PDF/A-3 (métadonnées XMP, flux non chiffré) lors de la ré-écriture ; documenter les limites si une conformité stricte n'est pas garantie.
+4. **XML editing**
+   - Free-form editing of the XML text in the right pane.
+   - Debounced live revalidation against the XSD.
+   - Saving: re-inject the edited XML back into the PDF by replacing the existing attachment (the visual PDF is not regenerated, only the XML attachment changes).
+   - Explicit caveat: preserve PDF/A-3 conformance as much as possible (XMP metadata, unencrypted streams) when rewriting; document the limits if strict conformance cannot be guaranteed.
 
-## Architecture technique proposée
+## Proposed technical architecture
 
-- **Type d'extension** : Custom Editor (webview-based), `viewType` dédié, activé sur les fichiers `.pdf` (avec possibilité de coexister avec la visionneuse PDF par défaut de VS Code — l'utilisateur choisit l'éditeur).
-- **Extension host (Node/TypeScript)** :
-  - Lecture du PDF et extraction de la pièce jointe embarquée → `pdf-lib` (ou `pdfjs-dist` pour la lecture d'attachments) comme point de départ.
-  - Validation XSD → `xmllint-wasm` (xmllint compilé en WebAssembly), exécuté côté extension host, pas dans la webview.
-  - Écriture de la pièce jointe modifiée dans le PDF → `pdf-lib`.
-- **Webview** :
-  - Rendu PDF via `pdf.js`.
-  - Édition XML via Monaco (bundlé) ou délégation à un `TextDocument` VS Code standard si on préfère un vrai onglet éditeur pour le XML plutôt qu'un widget dans la webview (à trancher — impact sur l'UX de sauvegarde/diagnostics).
-- **Diagnostics** : `vscode.languages.createDiagnosticCollection` pour remonter les erreurs XSD comme des diagnostics standards.
+- **Extension type**: Custom Editor (webview-based), dedicated `viewType`, activated on `.pdf` files (able to coexist with VS Code's default PDF viewer — the user picks the editor).
+- **Extension host (Node/TypeScript)**:
+  - Reading the PDF and extracting the embedded attachment → `pdf-lib` (or `pdfjs-dist` for reading attachments) as a starting point.
+  - XSD validation → `xmllint-wasm` (xmllint compiled to WebAssembly), run in the extension host, not in the webview.
+  - Writing the modified attachment back into the PDF → `pdf-lib`.
+- **Webview**:
+  - PDF rendering via `pdf.js`.
+  - XML editing via a bundled Monaco instance, or delegated to a standard VS Code `TextDocument` opened side by side (to be decided — affects save UX and diagnostics integration).
+- **Diagnostics**: `vscode.languages.createDiagnosticCollection` to surface XSD errors as standard VS Code diagnostics.
 
-## Décisions ouvertes (à trancher au fil du développement)
+## Open decisions (to settle as development proceeds)
 
-- Éditeur XML : widget Monaco dans la webview vs. document VS Code natif ouvert en parallèle (impacte la simplicité de sauvegarde et l'intégration avec les diagnostics).
-- Stratégie de re-génération du PDF/A-3 après édition (fidélité de conformité).
-- Gestion des PDF sans XML embarqué (comportement de fallback : proposer la vue PDF standard, ou vue vide + bouton "attacher un XML").
-- Packaging des XSD Factur-X (licence, versionnement des profils/millésimes CII D16B/D22B).
+- XML editor: Monaco widget inside the webview vs. a native VS Code document opened alongside (affects save simplicity and diagnostics integration).
+- Strategy for regenerating PDF/A-3 conformance after editing.
+- Handling PDFs with no embedded XML (fallback behavior: fall back to the standard PDF view, or show an empty panel with an "attach an XML" action).
+- Packaging of the Factur-X XSDs (licensing, versioning of profiles/vintages CII D16B/D22B).
+
+## Internationalization
+
+The project targets an international audience from day one:
+- All source code, identifiers, comments, commit messages, and UI strings are in English.
+- User-facing strings go through VS Code's `l10n` API (`vscode.l10n.t(...)`) from the start, even before any translation is added, so localization can be layered on without refactoring.
+- No hardcoded locale-specific formatting (dates, numbers, currency) — use `Intl` APIs and respect the user's VS Code display language where relevant.
+- Documentation (README, CLAUDE.md, CHANGELOG) is written in English; translations, if any, are added as separate files (e.g. `README.fr.md`), never by mixing languages in the same file.
+- XSD/business terminology (Factur-X, CII, EN 16931 profile names) is kept in its official English/international form rather than translated.
 
 ## Stack
 
-- TypeScript, API extension VS Code standard.
-- Empaquetage : `vsce` pour générer le `.vsix` (usage local dans VS Code pour l'instant, pas de publication sur le Marketplace prévue à ce stade).
+- TypeScript, standard VS Code extension API.
+- Packaging: `vsce` to produce a `.vsix` (for local use in VS Code for now, no Marketplace publication planned at this stage).
 
-## Non-objectifs (v1)
+## Non-goals (v1)
 
-- Pas de génération de facture Factur-X from scratch.
-- Pas d'intégration avec un ERP/comptabilité.
-- Pas de mode CLI/headless.
+- No Factur-X invoice generation from scratch.
+- No ERP/accounting system integration.
+- No CLI/headless mode.
