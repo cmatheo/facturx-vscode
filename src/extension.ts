@@ -2,9 +2,12 @@ import * as vscode from 'vscode';
 import { PdfXmlEditorProvider } from './pdfEditorProvider';
 import { replaceEmbeddedXml } from './pdfAttachment';
 import { FacturXXmlFileSystemProvider, XML_SCHEME } from './xmlFileSystemProvider';
+import { registerXmlValidation } from './xmlValidation';
 
 export function activate(context: vscode.ExtensionContext): void {
   const xmlFs = new FacturXXmlFileSystemProvider();
+
+  registerXmlValidation(context);
 
   context.subscriptions.push(
     vscode.workspace.registerFileSystemProvider(XML_SCHEME, xmlFs, {

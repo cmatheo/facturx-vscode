@@ -14,6 +14,9 @@ importers:
       pdfjs-dist:
         specifier: ^6.3.289
         version: 6.3.289
+      xmllint-wasm:
+        specifier: ^5.3.0
+        version: 5.3.0(@types/node@20.19.43)
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -130,6 +133,12 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  xmllint-wasm@5.3.0:
+    resolution: {integrity: sha512-sEgRXdf2t13eYCFCURmCE6h2hwleEOIS9VL/jOh9JJJnez2YXIooi2Ghm05/JZEPXyPawN8sMASPVZlmh8Sd6A==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+
 snapshots:
 
   '@napi-rs/canvas-android-arm64@1.0.8':
@@ -212,3 +221,7 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
+
+  xmllint-wasm@5.3.0(@types/node@20.19.43):
+    dependencies:
+      '@types/node': 20.19.43
