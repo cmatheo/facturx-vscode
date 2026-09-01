@@ -80,7 +80,7 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": "eslint --fix",
-    "*.{ts,js,mjs,cjs,json,md,css}": "prettier --write"
+    "*.{ts,js,mjs,cjs,json,md,css,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
