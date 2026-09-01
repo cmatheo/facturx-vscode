@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/cmatheo/facturx-vscode/compare/facturx-vscode-v0.1.0...facturx-vscode-v1.0.0) (2026-09-01)
+
+
+### Miscellaneous Chores
+
+* graduate to 1.0.0 ([4ea981d](https://github.com/cmatheo/facturx-vscode/commit/4ea981da3c30cb4bede55a3ff6df7077b8eeb00e))
+
 ## [0.1.0](https://github.com/cmatheo/facturx-vscode/compare/facturx-vscode-v0.0.1...facturx-vscode-v0.1.0) (2026-09-01)
 
 
