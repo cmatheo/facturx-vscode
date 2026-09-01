@@ -106,12 +106,19 @@ function formatElementList(rawList: string): string {
 /**
  * Rewrites raw libxml2/xmllint schema-validation messages into something a user editing
  * Factur-X XML (rather than the underlying XSD) can actually act on: strips the verbose
- * namespace URIs, and for the two most common/confusing cases (an out-of-order or extra
- * element, a missing mandatory child) adds a plain-English explanation of what to do.
+ * namespace URIs, and for the three most common/confusing cases (an out-of-order or extra
+ * element, a missing mandatory child, a wrong root element) adds a plain-English explanation
+ * of what to do. These are matched by the exact English wording libxml2 currently emits, so
+ * an xmllint-wasm upgrade that rewords its messages could silently widen the fallback below
+ * rather than erroring; xsdValidator.test.ts exercises this against the real library to catch
+ * that. Any other message shape (type/pattern/enumeration mismatches, etc.) falls through to
+ * just having its namespaces stripped, unchanged otherwise.
  */
 export function humanizeXsdMessage(raw: string): string {
+  const trimmed = raw.trim();
+
   const notExpectedMatch = /^Element '([^']+)': This element is not expected\.(?: Expected is (?:one of )?\(([^)]*)\)\.)?$/.exec(
-    raw.trim(),
+    trimmed,
   );
   if (notExpectedMatch) {
     const element = stripNamespaces(notExpectedMatch[1]);
@@ -127,7 +134,7 @@ export function humanizeXsdMessage(raw: string): string {
   }
 
   const missingChildMatch = /^Element '([^']+)': Missing child element\(s\)\. Expected is \(([^)]*)\)\.$/.exec(
-    raw.trim(),
+    trimmed,
   );
   if (missingChildMatch) {
     const element = stripNamespaces(missingChildMatch[1]);
@@ -136,7 +143,7 @@ export function humanizeXsdMessage(raw: string): string {
   }
 
   const noRootMatch = /^Element '([^']+)': No matching global declaration available for the validation root\.$/.exec(
-    raw.trim(),
+    trimmed,
   );
   if (noRootMatch) {
     const element = stripNamespaces(noRootMatch[1]);
