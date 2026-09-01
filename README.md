@@ -49,8 +49,11 @@ Then open the folder in VS Code and press `F5` to launch an Extension Developmen
 
 ## Development
 
-- `pnpm test` runs the unit test suite (vitest); `pnpm run lint` / `pnpm run format:check` run ESLint/Prettier; `pnpm run compile` type-checks.
-- These all run automatically as git hooks on commit (via Husky) and again in CI (GitHub Actions) on every push/PR.
+- `pnpm test` runs the unit test suite (vitest); `pnpm run lint` / `pnpm run format:check` run ESLint/Prettier; `pnpm run compile` type-checks (`tsc --noEmit`) and bundles the extension host with esbuild into `out/extension.js`.
+- `pnpm run watch:types` / `pnpm run watch:build` re-run the type-checker / bundler on file changes (used by the `F5` Extension Development Host launch).
+- `pnpm run smoke` loads the real built bundle under a fake `vscode` module and calls `activate()`/`deactivate()` — the one class of bug bundling could introduce that `tsc`/vitest can't catch, since vitest imports `src/*.ts` directly rather than the built bundle.
+- `pnpm run package` builds the `.vsix`: only `pdf-lib` gets inlined into the bundle by esbuild — `xmllint-wasm` (its `validateXML()` spawns a worker pointing at its own files on disk) and `pdfjs-dist`'s two browser build files (served to the webview by disk path, never `require()`d) are vendored in as real files, not bundled. See `scripts/package-vsix.js` and `esbuild.js` for why.
+- All of the above run automatically as git hooks on commit (via Husky) and again in CI (GitHub Actions) on every push/PR.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, …) — enforced by a commit-msg hook — since they drive the automated version bump on release.
 
 ### Release process

@@ -5,18 +5,9 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['out/**', 'node_modules/**', 'xsd/**', '.vscode-test/**', 'l10n/**'],
+    ignores: ['out/**', 'node_modules/**', 'xsd/**', '.vscode-test/**', 'l10n/**', '.claude/**'],
   },
   eslint.configs.recommended,
-  {
-    // CommonJS config files that run directly under Node (not part of the tsconfig
-    // TS project), e.g. commitlint.config.js.
-    files: ['*.config.js', '*.config.cjs'],
-    languageOptions: {
-      sourceType: 'commonjs',
-      globals: { module: 'writable', require: 'readonly' },
-    },
-  },
   ...tseslint.configs.recommended,
   {
     files: ['src/**/*.ts', 'test/**/*.ts'],
@@ -27,6 +18,28 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // CommonJS scripts that run directly under Node (not part of the tsconfig TS
+    // project): config files like commitlint.config.js, and the build/package
+    // scripts under scripts/ plus esbuild.js. Placed after typescript-eslint's
+    // recommended preset (whose languageOptions/rules apply file-pattern-free by
+    // default) so these overrides actually win for the files they target.
+    files: ['*.config.js', '*.config.cjs', 'scripts/**/*.js', 'esbuild.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'writable',
+        require: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

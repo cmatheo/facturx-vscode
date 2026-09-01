@@ -36,12 +36,14 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Smoke-test the esbuild bundle (activate/deactivate under a fake vscode module)
+        run: pnpm run smoke
+
       - name: Package the extension (build-only check, not published)
-        # @vscode/vsce always runs the prepublish script through npm (it has no pnpm
-        # support), which corepack refuses by default since this repo pins pnpm via
-        # "packageManager" - COREPACK_ENABLE_STRICT=0 lets that inner npm call through.
-        # node-linker=hoisted (.npmrc) is what makes vsce's npm-based dependency
-        # detection see a normal flat node_modules it can prune to production deps.
-        env:
-          COREPACK_ENABLE_STRICT: '0'
-        run: pnpm exec vsce package -o /tmp/facturx-vscode.vsix
+        # pnpm run package bundles with esbuild, packages with `vsce package
+        # --no-dependencies` (COREPACK_ENABLE_STRICT=0 lets vsce's inner npm-shelled
+        # prepublish step run despite this repo pinning pnpm), then vendors in the
+        # handful of runtime files (xmllint-wasm, pdfjs-dist's browser build) vsce's
+        # own dependency detection can't be made to trim reliably - see
+        # scripts/package-vsix.js.
+        run: pnpm run package

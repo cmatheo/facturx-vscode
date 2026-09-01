@@ -70,14 +70,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
+      - name: Smoke-test the esbuild bundle (activate/deactivate under a fake vscode module)
+        run: pnpm run smoke
+
       - name: Package .vsix
-        env:
-          COREPACK_ENABLE_STRICT: '0'
-        run: pnpm exec vsce package -o facturx-vscode.vsix
+        run: pnpm run package
 
       - name: Publish to the VS Code Marketplace
-        env:
-          COREPACK_ENABLE_STRICT: '0'
         run: pnpm exec vsce publish --azure-credential --skip-duplicate --packagePath facturx-vscode.vsix
 
       - name: Attach the .vsix to the GitHub release

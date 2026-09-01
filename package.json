@@ -63,15 +63,19 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "typecheck": "tsc -p ./ --noEmit",
+    "build": "node esbuild.js --production",
+    "compile": "tsc -p ./ --noEmit && node esbuild.js --production",
+    "watch:types": "tsc -w -p ./ --noEmit",
+    "watch:build": "node esbuild.js --watch",
     "vscode:prepublish": "npm run compile",
     "test": "vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "package": "COREPACK_ENABLE_STRICT=0 vsce package",
+    "package": "node scripts/package-vsix.js facturx-vscode.vsix",
+    "smoke": "node scripts/smoke-test-bundle.js",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -85,17 +89,18 @@
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
+    "pdf-lib": "^1.17.1",
     "prettier": "^3.9.6",
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.69.0",
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
     "xmllint-wasm": "^5.3.0"
   }

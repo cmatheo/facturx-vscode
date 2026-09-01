@@ -62,14 +62,27 @@ that hit and documented the one genuinely undocumented gotcha (step 4 below).
 
 2. **Add a federated credential** on that managed identity: the identity resource →
    **Settings → Federated credentials → + Add credential**. Choose scenario
-   **"GitHub Actions deploying Azure resources"**, then:
-   - Organization: `cmatheo`
-   - Repository: `facturx-vscode`
+   **"GitHub Actions deploying Azure resources"**. As of late 2026 this blade wants
+   the **numeric, immutable GitHub organization/repository IDs**, not the
+   login/repo names (names can be renamed or transferred; the numeric ID can't) —
+   fetch them from the GitHub API rather than typing the names:
+
+   ```sh
+   curl -s https://api.github.com/users/cmatheo | grep '"id"'          # Organization ID
+   curl -s https://api.github.com/repos/cmatheo/facturx-vscode | grep '"id"' | head -1  # Repository ID
+   ```
+
+   For this repo that's **Organization ID `51848905`**, **Repository ID
+   `1352309483`**. Then:
    - Entity type: **Environment** (not Branch/Tag — an environment-scoped
      credential doesn't need updating every time you cut a release off a
      different ref, and it lets you later add a required-reviewer protection
      rule on the GitHub side without touching Azure again)
    - GitHub environment name: `marketplace-publish`
+
+   The **Subject identifier** field fills in automatically from the above; leave
+   it alone. Give the credential a **Name** (e.g. `github-marketplace-publish`)
+   and leave **Audience** at its default (`api://AzureADTokenExchange`).
 
 3. **Create the matching GitHub Environment**: this repo's Settings →
    Environments → **New environment** → name it exactly `marketplace-publish`

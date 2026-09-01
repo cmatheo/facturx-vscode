@@ -2,5 +2,6 @@ out/
 node_modules/
 xsd/
 .vscode-test/
+.claude/
 pnpm-lock.yaml
 CHANGELOG.md
