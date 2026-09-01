@@ -190,8 +190,6 @@ describe('upsertEmbeddedXml', () => {
 
   it('rejects when given bytes that are not a valid PDF at all', async () => {
     const garbage = new TextEncoder().encode('this is not a pdf');
-    await expect(
-      upsertEmbeddedXml(garbage, DEFAULT_XML_ATTACHMENT_NAME, new Uint8Array()),
-    ).rejects.toThrow();
+    await expect(upsertEmbeddedXml(garbage, DEFAULT_XML_ATTACHMENT_NAME, new Uint8Array())).rejects.toThrow();
   });
 });

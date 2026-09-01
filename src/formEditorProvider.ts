@@ -189,8 +189,12 @@ export class FacturXFormPanelManager {
    */
   private renderHtml(webview: vscode.Webview): string {
     const nonce = generateNonce();
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'formEditorPanel.css'));
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'formEditorPanel.js'));
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'media', 'formEditorPanel.css'),
+    );
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'media', 'formEditorPanel.js'),
+    );
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>

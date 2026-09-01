@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Check formatting
+        run: pnpm run format:check
+
+      - name: Type-check / compile
+        run: pnpm run compile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Package the extension (build-only check, not published)
+        # @vscode/vsce always runs the prepublish script through npm (it has no pnpm
+        # support), which corepack refuses by default since this repo pins pnpm via
+        # "packageManager" - COREPACK_ENABLE_STRICT=0 lets that inner npm call through.
+        # node-linker=hoisted (.npmrc) is what makes vsce's npm-based dependency
+        # detection see a normal flat node_modules it can prune to production deps.
+        env:
+          COREPACK_ENABLE_STRICT: '0'
+        run: pnpm exec vsce package -o /tmp/facturx-vscode.vsix

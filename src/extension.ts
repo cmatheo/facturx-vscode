@@ -53,12 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await vscode.window.tabGroups.close(existingTabs);
       }
 
-      await vscode.commands.executeCommand(
-        'vscode.openWith',
-        uri,
-        PdfXmlEditorProvider.viewType,
-        column,
-      );
+      await vscode.commands.executeCommand('vscode.openWith', uri, PdfXmlEditorProvider.viewType, column);
     }),
     vscode.commands.registerCommand('facturx.showFieldForm', async () => {
       const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;

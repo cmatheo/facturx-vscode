@@ -3,6 +3,7 @@
 ## Goal
 
 A VS Code extension that opens a Factur-X PDF and displays **side by side**:
+
 - the rendered PDF,
 - the embedded CII (Cross Industry Invoice) XML it carries,
 
@@ -60,6 +61,7 @@ Factur-X profiles (from simplest to most complete): MINIMUM, BASIC WL, BASIC, EN
 ## Internationalization
 
 The project targets an international audience from day one:
+
 - All source code, identifiers, comments, commit messages, and UI strings are in English.
 - User-facing strings go through VS Code's `l10n` API (`vscode.l10n.t(...)`) from the start, even before any translation is added, so localization can be layered on without refactoring.
 - No hardcoded locale-specific formatting (dates, numbers, currency) — use `Intl` APIs and respect the user's VS Code display language where relevant.
@@ -69,7 +71,9 @@ The project targets an international audience from day one:
 ## Stack
 
 - TypeScript, standard VS Code extension API.
-- Packaging: `vsce` to produce a `.vsix` (for local use in VS Code for now, no Marketplace publication planned at this stage).
+- Packaging: `@vscode/vsce` to produce a `.vsix`.
+- Quality gate: ESLint + Prettier + `tsc` + vitest, enforced both as git pre-commit hooks (Husky) and in CI (GitHub Actions). Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (enforced by commitlint on `commit-msg`).
+- Release automation: [release-please](https://github.com/googleapis/release-please) maintains a standing "Release PR" from Conventional Commits on `main`; merging it bumps the version, updates `CHANGELOG.md`, and tags/creates a GitHub Release, which triggers automatic publication to the VS Code Marketplace. See `docs/RELEASE_SETUP.md` for the one-time manual setup this depends on (Marketplace publisher, Microsoft Entra ID app + OIDC federation - no PAT is stored).
 
 ## Non-goals (v1)
 

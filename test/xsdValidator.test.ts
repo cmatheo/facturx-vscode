@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as path from 'node:path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 import { Uri } from 'vscode';
 import { validateAgainstXsd } from '../src/xsdValidator';
 import { blankCiiInvoiceSkeleton } from '../src/facturxProfile';

@@ -21,18 +21,14 @@ describe('detectFacturXProfile', () => {
     ).toBe('basic');
     expect(detectFacturXProfile(withGuideline('urn:cen.eu:en16931:2017'))).toBe('en16931');
     expect(
-      detectFacturXProfile(
-        withGuideline('urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended'),
-      ),
+      detectFacturXProfile(withGuideline('urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended')),
     ).toBe('extended');
   });
 
   it('falls back to substring matching for the extended-CTC-FR variant', () => {
     expect(
       detectFacturXProfile(
-        withGuideline(
-          'urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr',
-        ),
+        withGuideline('urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr'),
       ),
     ).toBe('extended');
   });
@@ -63,9 +59,9 @@ describe('detectFacturXProfile', () => {
   });
 
   it('trims surrounding whitespace/newlines inside the ID element', () => {
-    expect(
-      detectFacturXProfile(withGuideline('\n      urn:factur-x.eu:1p0:minimum   \n    ')),
-    ).toBe('minimum');
+    expect(detectFacturXProfile(withGuideline('\n      urn:factur-x.eu:1p0:minimum   \n    '))).toBe(
+      'minimum',
+    );
   });
 
   it('does not match when the ID element is unclosed (malformed XML)', () => {

@@ -12,7 +12,7 @@ import {
 import { detectFacturXProfile } from '../src/facturxProfile';
 import { validateAgainstXsd } from '../src/xsdValidator';
 import * as path from 'node:path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 import { Uri } from 'vscode';
 
 const extensionUri = Uri.file(path.resolve(__dirname, '..'));
@@ -95,8 +95,20 @@ describe('buildCiiInvoiceXml', () => {
   );
 
   it('supports multiple VAT breakdown rows for a multi-rate invoice, in the order given', async () => {
-    const standard = { ...fullVatEntry(), vatCategoryCode: 'S', vatRatePercent: '20.00', vatBasisAmount: '100.00', vatCalculatedAmount: '20.00' };
-    const reduced = { ...fullVatEntry(), vatCategoryCode: 'S', vatRatePercent: '5.50', vatBasisAmount: '50.00', vatCalculatedAmount: '2.75' };
+    const standard = {
+      ...fullVatEntry(),
+      vatCategoryCode: 'S',
+      vatRatePercent: '20.00',
+      vatBasisAmount: '100.00',
+      vatCalculatedAmount: '20.00',
+    };
+    const reduced = {
+      ...fullVatEntry(),
+      vatCategoryCode: 'S',
+      vatRatePercent: '5.50',
+      vatBasisAmount: '50.00',
+      vatCalculatedAmount: '2.75',
+    };
     const xml = buildCiiInvoiceXml('basicwl', fullValues(), [], [standard, reduced]);
 
     expect(xml.match(/<ram:ApplicableTradeTax>/g)?.length).toBe(2);
@@ -322,9 +334,7 @@ describe('extractLineItems', () => {
   });
 
   it('does not throw on malformed/unclosed line item markup', () => {
-    expect(() =>
-      extractLineItems('<ram:IncludedSupplyChainTradeLineItem><ram:Name>unclosed'),
-    ).not.toThrow();
+    expect(() => extractLineItems('<ram:IncludedSupplyChainTradeLineItem><ram:Name>unclosed')).not.toThrow();
   });
 });
 
@@ -349,7 +359,7 @@ describe('extractVatBreakdown', () => {
     expect(extracted[1].vatRatePercent).toBe('5.50');
   });
 
-  it('does not pick up a line item\'s own ApplicableTradeTax as a header breakdown row', () => {
+  it("does not pick up a line item's own ApplicableTradeTax as a header breakdown row", () => {
     const line = { ...fullLineItem(), vatRatePercent: '10.00' };
     const headerEntry = { ...fullVatEntry(), vatRatePercent: '20.00' };
     const xml = buildCiiInvoiceXml('basic', fullValues(), [line], [headerEntry]);
@@ -367,7 +377,9 @@ describe('extractVatBreakdown', () => {
   });
 
   it('does not throw on malformed/unclosed markup', () => {
-    expect(() => extractVatBreakdown('<ram:ApplicableHeaderTradeSettlement><ram:ApplicableTradeTax>unclosed')).not.toThrow();
+    expect(() =>
+      extractVatBreakdown('<ram:ApplicableHeaderTradeSettlement><ram:ApplicableTradeTax>unclosed'),
+    ).not.toThrow();
   });
 });
 

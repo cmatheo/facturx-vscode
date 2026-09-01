@@ -229,7 +229,11 @@ export const FIELD_DEFS: FieldDef[] = [
     label: 'Payment means code',
     description: 'UNTDID 4461 payment means code (e.g. 58 = SEPA credit transfer, 59 = SEPA direct debit).',
     type: 'text',
-    xmlPath: ['ram:ApplicableHeaderTradeSettlement', 'ram:SpecifiedTradeSettlementPaymentMeans', 'ram:TypeCode'],
+    xmlPath: [
+      'ram:ApplicableHeaderTradeSettlement',
+      'ram:SpecifiedTradeSettlementPaymentMeans',
+      'ram:TypeCode',
+    ],
     mandatoryFor: [],
     availableFrom: 'basicwl',
     default: '58',
@@ -275,7 +279,8 @@ export const FIELD_DEFS: FieldDef[] = [
     id: 'lineTotalSum',
     group: 'Payment & totals',
     label: 'Line total sum',
-    description: 'Sum of all invoice line net totals, excluding tax (should match the tax basis total when there are no allowances/charges).',
+    description:
+      'Sum of all invoice line net totals, excluding tax (should match the tax basis total when there are no allowances/charges).',
     type: 'number',
     xmlPath: [
       'ram:ApplicableHeaderTradeSettlement',
@@ -401,7 +406,8 @@ export const VAT_BREAKDOWN_FIELD_DEFS: VatBreakdownFieldDef[] = [
   {
     id: 'vatBasisAmount',
     label: 'VAT basis amount',
-    description: 'Amount this VAT rate applies to (the sum of the tax basis amounts across breakdown rows should match the invoice tax basis total).',
+    description:
+      'Amount this VAT rate applies to (the sum of the tax basis amounts across breakdown rows should match the invoice tax basis total).',
     type: 'number',
     xmlLeaf: ['ram:BasisAmount'],
     default: '0.00',
@@ -409,7 +415,8 @@ export const VAT_BREAKDOWN_FIELD_DEFS: VatBreakdownFieldDef[] = [
   {
     id: 'vatCategoryCode',
     label: 'VAT category code',
-    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
+    description:
+      'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
     type: 'text',
     xmlLeaf: ['ram:CategoryCode'],
     default: 'S',
@@ -486,7 +493,8 @@ export const LINE_ITEM_FIELD_DEFS: LineItemFieldDef[] = [
   {
     id: 'vatCategoryCode',
     label: 'VAT category code',
-    description: 'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
+    description:
+      'UNTDID 5305 tax category code. S = standard rate, Z = zero rated, E = exempt, AE = reverse charge.',
     type: 'text',
     xmlLeaf: ['ram:SpecifiedLineTradeSettlement', 'ram:ApplicableTradeTax', 'ram:CategoryCode'],
     default: 'S',

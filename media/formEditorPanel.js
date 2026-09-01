@@ -39,14 +39,18 @@ const PROFILE_ORDER = ['minimum', 'basicwl', 'basic', 'en16931', 'extended'];
 // format (format="102", i.e. plain YYYYMMDD) only at the init/apply boundaries.
 function storageToDisplay(stored) {
   const match = /^(\d{4})(\d{2})(\d{2})$/.exec((stored || '').trim());
-  if (!match) { return stored || ''; }
+  if (!match) {
+    return stored || '';
+  }
   const [, yyyy, mm, dd] = match;
   return dd + '/' + mm + '/' + yyyy;
 }
 
 function displayToStorage(display) {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((display || '').trim());
-  if (!match) { return display || ''; }
+  if (!match) {
+    return display || '';
+  }
   const [, dd, mm, yyyy] = match;
   return yyyy + mm + dd;
 }
@@ -79,7 +83,9 @@ function render() {
   groupsEl.innerHTML = '';
   const byGroup = new Map();
   for (const field of fields) {
-    if (!byGroup.has(field.group)) { byGroup.set(field.group, []); }
+    if (!byGroup.has(field.group)) {
+      byGroup.set(field.group, []);
+    }
     byGroup.get(field.group).push(field);
   }
   for (const [groupName, groupFields] of byGroup) {
@@ -153,14 +159,28 @@ function renderLineItems() {
   const available = lineItemsAvailable();
   lineItemsSection.classList.toggle('unavailable', !available);
   addLineBtn.disabled = !available;
-  renderRepeatableTable(lineItemFields, lineItems, available, lineItemsHeaderRow, lineItemsBody, renderLineItems);
+  renderRepeatableTable(
+    lineItemFields,
+    lineItems,
+    available,
+    lineItemsHeaderRow,
+    lineItemsBody,
+    renderLineItems,
+  );
 }
 
 function renderVatBreakdown() {
   const available = vatBreakdownAvailable();
   vatSection.classList.toggle('unavailable', !available);
   addVatBtn.disabled = !available;
-  renderRepeatableTable(vatBreakdownFields, vatBreakdown, available, vatHeaderRow, vatBody, renderVatBreakdown);
+  renderRepeatableTable(
+    vatBreakdownFields,
+    vatBreakdown,
+    available,
+    vatHeaderRow,
+    vatBody,
+    renderVatBreakdown,
+  );
 }
 
 function renderField(field) {
@@ -177,8 +197,8 @@ function renderField(field) {
 
   const available = isAvailable(field);
   const badge = document.createElement('span');
-  badge.className = !available ? 'optional' : (isMandatory(field) ? 'mandatory' : 'optional');
-  badge.textContent = !available ? 'not in this profile' : (isMandatory(field) ? 'required' : 'optional');
+  badge.className = !available ? 'optional' : isMandatory(field) ? 'mandatory' : 'optional';
+  badge.textContent = !available ? 'not in this profile' : isMandatory(field) ? 'required' : 'optional';
   label.appendChild(badge);
   wrap.appendChild(label);
 
@@ -205,7 +225,9 @@ function updateValidity() {
   let missing = [];
   for (const field of fields) {
     const el = groupsEl.querySelector('[data-field-id="' + field.id + '"]');
-    if (!el) { continue; }
+    if (!el) {
+      continue;
+    }
     if (!isAvailable(field)) {
       el.classList.remove('missing');
       continue;
@@ -213,7 +235,9 @@ function updateValidity() {
     const empty = !(values[field.id] ?? '').trim();
     const mandatory = isMandatory(field);
     el.classList.toggle('missing', mandatory && empty && !allowMissing);
-    if (mandatory && empty) { missing.push(field.label); }
+    if (mandatory && empty) {
+      missing.push(field.label);
+    }
   }
   if (lineItemsAvailable() && !lineItems.some((line) => rowHasAnyValue(lineItemFields, line))) {
     missing.push('at least one invoice line');
@@ -223,10 +247,10 @@ function updateValidity() {
   }
   if (allowMissing) {
     applyBtn.disabled = false;
-    warningEl.textContent = missing.length ? ('Will omit: ' + missing.join(', ')) : '';
+    warningEl.textContent = missing.length ? 'Will omit: ' + missing.join(', ') : '';
   } else {
     applyBtn.disabled = missing.length > 0;
-    warningEl.textContent = missing.length ? ('Missing required: ' + missing.join(', ')) : '';
+    warningEl.textContent = missing.length ? 'Missing required: ' + missing.join(', ') : '';
   }
 }
 
@@ -266,7 +290,9 @@ document.getElementById('reloadBtn').addEventListener('click', () => {
 
 window.addEventListener('message', (event) => {
   const message = event.data;
-  if (message.type !== 'init') { return; }
+  if (message.type !== 'init') {
+    return;
+  }
   fields = message.fields;
   profiles = message.profiles;
   values = Object.assign({}, message.values);
@@ -284,9 +310,10 @@ window.addEventListener('message', (event) => {
     opt.textContent = p.label;
     profileSelect.appendChild(opt);
   }
-  profileSelect.value = previousProfile && profiles.some((p) => p.value === previousProfile)
-    ? previousProfile
-    : profiles[0].value;
+  profileSelect.value =
+    previousProfile && profiles.some((p) => p.value === previousProfile)
+      ? previousProfile
+      : profiles[0].value;
   render();
 });
 

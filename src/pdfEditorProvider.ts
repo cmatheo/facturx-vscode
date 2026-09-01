@@ -31,10 +31,7 @@ export class PdfXmlEditorProvider implements vscode.CustomReadonlyEditorProvider
     return new PdfDocument(uri);
   }
 
-  async resolveCustomEditor(
-    document: PdfDocument,
-    webviewPanel: vscode.WebviewPanel,
-  ): Promise<void> {
+  async resolveCustomEditor(document: PdfDocument, webviewPanel: vscode.WebviewPanel): Promise<void> {
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
@@ -103,10 +100,7 @@ export class PdfXmlEditorProvider implements vscode.CustomReadonlyEditorProvider
     if (!this.formPanels.has(pdfUri)) {
       await vscode.commands.executeCommand('vscode.setEditorLayout', {
         orientation: 0,
-        groups: [
-          { size: 0.5 },
-          { size: 0.5, orientation: 1, groups: [{ size: 0.6 }, { size: 0.4 }] },
-        ],
+        groups: [{ size: 0.5 }, { size: 0.5, orientation: 1, groups: [{ size: 0.6 }, { size: 0.4 }] }],
       });
     }
 

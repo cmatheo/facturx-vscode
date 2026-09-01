@@ -34,10 +34,7 @@ export const workspace = {
   fs: {
     async readDirectory(uri: Uri): Promise<Array<[string, FileType]>> {
       const entries: Dirent[] = await fs.readdir(uri.fsPath, { withFileTypes: true });
-      return entries.map((entry) => [
-        entry.name,
-        entry.isDirectory() ? FileType.Directory : FileType.File,
-      ]);
+      return entries.map((entry) => [entry.name, entry.isDirectory() ? FileType.Directory : FileType.File]);
     },
     async readFile(uri: Uri): Promise<Uint8Array> {
       const buffer = await fs.readFile(uri.fsPath);

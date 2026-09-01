@@ -10,12 +10,7 @@ import {
 
 // Field/profile-availability data lives in facturxFieldDefs.ts; re-exported here so
 // this stays the single import path for both the data and the engine that consumes it.
-export type {
-  FieldType,
-  FieldDef,
-  VatBreakdownFieldDef,
-  LineItemFieldDef,
-} from './facturxFieldDefs';
+export type { FieldType, FieldDef, VatBreakdownFieldDef, LineItemFieldDef } from './facturxFieldDefs';
 export {
   isFieldAvailable,
   FIELD_DEFS,
@@ -29,11 +24,7 @@ export {
 } from './facturxFieldDefs';
 
 function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 const PROFILE_URN: Record<FacturXProfile, string> = {
@@ -139,11 +130,7 @@ export function buildCiiInvoiceXml(
   const root = node('rsm:CrossIndustryInvoice');
 
   const context = descend(root, ['rsm:ExchangedDocumentContext'], true)!;
-  const guideline = descend(
-    context,
-    ['ram:GuidelineSpecifiedDocumentContextParameter', 'ram:ID'],
-    true,
-  )!;
+  const guideline = descend(context, ['ram:GuidelineSpecifiedDocumentContextParameter', 'ram:ID'], true)!;
   guideline.text = PROFILE_URN[profile];
 
   // Pre-create rsm:ExchangedDocument on root before rsm:SupplyChainTradeTransaction
@@ -206,12 +193,12 @@ export function buildCiiInvoiceXml(
   // so each row is built as an independent node and spliced into settlement.children
   // at the right position instead.
   if (isVatBreakdownAvailable(profile) && vatBreakdown.length > 0) {
-    const nodes = vatBreakdown
-      .map(buildVatBreakdownNode)
-      .filter((n): n is XmlNode => n !== undefined);
+    const nodes = vatBreakdown.map(buildVatBreakdownNode).filter((n): n is XmlNode => n !== undefined);
     if (nodes.length > 0) {
       const insertAt = settlement.children.findIndex(
-        (c) => c.name === 'ram:SpecifiedTradePaymentTerms' || c.name === 'ram:SpecifiedTradeSettlementHeaderMonetarySummation',
+        (c) =>
+          c.name === 'ram:SpecifiedTradePaymentTerms' ||
+          c.name === 'ram:SpecifiedTradeSettlementHeaderMonetarySummation',
       );
       settlement.children.splice(insertAt === -1 ? settlement.children.length : insertAt, 0, ...nodes);
     }
@@ -334,7 +321,9 @@ export function extractVatBreakdown(xml: string): Array<Record<string, string>> 
 function narrowToPath(xml: string, path: string[]): string | undefined {
   let scope = xml;
   for (const segment of path) {
-    const tagPattern = new RegExp(`<${escapeRegExp(segment)}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapeRegExp(segment)}>`);
+    const tagPattern = new RegExp(
+      `<${escapeRegExp(segment)}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapeRegExp(segment)}>`,
+    );
     const match = tagPattern.exec(scope);
     if (!match) {
       return undefined;

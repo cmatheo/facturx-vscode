@@ -26,9 +26,8 @@ function nameTreeEntries(namesArray: PDFArray): Array<{ name: string; fileSpec: 
   for (let i = 0; i + 1 < namesArray.size(); i += 2) {
     const nameObj = namesArray.lookup(i);
     const fileSpec = namesArray.lookupMaybe(i + 1, PDFDict);
-    const name = nameObj instanceof PDFHexString || nameObj instanceof PDFString
-      ? nameObj.decodeText()
-      : undefined;
+    const name =
+      nameObj instanceof PDFHexString || nameObj instanceof PDFString ? nameObj.decodeText() : undefined;
     if (name && fileSpec) {
       entries.push({ name, fileSpec });
     }

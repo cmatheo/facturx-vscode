@@ -1,0 +1,6 @@
+out/
+node_modules/
+xsd/
+.vscode-test/
+pnpm-lock.yaml
+CHANGELOG.md

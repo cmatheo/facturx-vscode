@@ -22,10 +22,7 @@ interface SchemaBundle {
 
 const schemaCache = new Map<FacturXProfile, Promise<SchemaBundle>>();
 
-async function loadSchemaBundle(
-  extensionUri: vscode.Uri,
-  profile: FacturXProfile,
-): Promise<SchemaBundle> {
+async function loadSchemaBundle(extensionUri: vscode.Uri, profile: FacturXProfile): Promise<SchemaBundle> {
   const dirUri = vscode.Uri.joinPath(extensionUri, 'xsd', profile);
   const entries = await vscode.workspace.fs.readDirectory(dirUri);
   const xsdNames = entries
@@ -117,9 +114,10 @@ function formatElementList(rawList: string): string {
 export function humanizeXsdMessage(raw: string): string {
   const trimmed = raw.trim();
 
-  const notExpectedMatch = /^Element '([^']+)': This element is not expected\.(?: Expected is (?:one of )?\(([^)]*)\)\.)?$/.exec(
-    trimmed,
-  );
+  const notExpectedMatch =
+    /^Element '([^']+)': This element is not expected\.(?: Expected is (?:one of )?\(([^)]*)\)\.)?$/.exec(
+      trimmed,
+    );
   if (notExpectedMatch) {
     const element = stripNamespaces(notExpectedMatch[1]);
     const expectedRaw = notExpectedMatch[2];
@@ -133,18 +131,16 @@ export function humanizeXsdMessage(raw: string): string {
     return `Unexpected element <${element}> here — no further elements are allowed at this point (it may be duplicated, or misplaced).`;
   }
 
-  const missingChildMatch = /^Element '([^']+)': Missing child element\(s\)\. Expected is \(([^)]*)\)\.$/.exec(
-    trimmed,
-  );
+  const missingChildMatch =
+    /^Element '([^']+)': Missing child element\(s\)\. Expected is \(([^)]*)\)\.$/.exec(trimmed);
   if (missingChildMatch) {
     const element = stripNamespaces(missingChildMatch[1]);
     const expected = formatElementList(missingChildMatch[2]);
     return `<${element}> is missing a required child element: ${expected}.`;
   }
 
-  const noRootMatch = /^Element '([^']+)': No matching global declaration available for the validation root\.$/.exec(
-    trimmed,
-  );
+  const noRootMatch =
+    /^Element '([^']+)': No matching global declaration available for the validation root\.$/.exec(trimmed);
   if (noRootMatch) {
     const element = stripNamespaces(noRootMatch[1]);
     return `<${element}> is not a valid root element for this schema — check the document's declared Factur-X profile.`;

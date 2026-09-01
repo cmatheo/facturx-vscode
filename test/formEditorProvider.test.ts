@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FacturXFormPanelManager } from '../src/formEditorProvider';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 import { Uri } from 'vscode';
 
 /**
@@ -27,18 +27,12 @@ describe('FacturXFormPanelManager.renderHtml', () => {
   }
 
   it('produces the webview media/formEditorPanel.js file as syntactically valid JavaScript', () => {
-    const script = fs.readFileSync(
-      path.resolve(__dirname, '..', 'media', 'formEditorPanel.js'),
-      'utf-8',
-    );
+    const script = fs.readFileSync(path.resolve(__dirname, '..', 'media', 'formEditorPanel.js'), 'utf-8');
     expect(() => new Function(script)).not.toThrow();
   });
 
   it('does not contain regex literals with escape backslashes stripped (the original incident)', () => {
-    const script = fs.readFileSync(
-      path.resolve(__dirname, '..', 'media', 'formEditorPanel.js'),
-      'utf-8',
-    );
+    const script = fs.readFileSync(path.resolve(__dirname, '..', 'media', 'formEditorPanel.js'), 'utf-8');
     expect(script).toContain('\\d{2}');
     expect(script).toContain('\\d{4}');
   });
