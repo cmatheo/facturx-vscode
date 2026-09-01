@@ -3,7 +3,7 @@
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
   "version": "0.0.1",
-  "publisher": "TODO-set-your-marketplace-publisher-id",
+  "publisher": "cmatheo",
   "repository": {
     "type": "git",
     "url": "https://github.com/cmatheo/facturx-vscode.git"
