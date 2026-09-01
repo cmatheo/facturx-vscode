@@ -101,8 +101,21 @@ that hit and documented the one genuinely undocumented gotcha (step 4 below).
    Marketplace publisher's member list is backed by Azure DevOps identities, which
    are _not_ the same as the managed identity's Azure Resource ID — you need a
    separate ID that only appears by asking Azure DevOps's own profile API "who am
-   I", authenticated as the managed identity. There's no portal page for this; you
-   have to call it once:
+   I", authenticated as the managed identity.
+
+   **5a. Give the identity an Azure DevOps profile first.** A managed identity
+   that has never talked to Azure DevOps has no profile there yet — calling the
+   API below before this step fails with `VSS011031: There is no profile for the
+authenticated user in the system`. Fix: go to
+   [dev.azure.com](https://dev.azure.com) (create a free organization if you
+   don't have one) → **Organization Settings** (gear icon) → **Users** → **Add
+   users** → enter the managed identity's **display name** (e.g.
+   `vscode-publisher`) in the Users field → **Access level: Stakeholder** (free,
+   unlimited — this identity never does real Azure DevOps work, it just needs to
+   exist) → pick any project for "Add to projects" (a formality) → **Add**. This
+   provisions the profile; the API call below will now succeed.
+
+   There's no portal page for the lookup itself; you have to call it once:
 
    Temporarily add a throwaway workflow, e.g. `.github/workflows/debug-identity.yml`:
 
