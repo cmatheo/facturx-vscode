@@ -1,0 +1,28 @@
+body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 8px 12px; font-size: 13px; }
+#topBar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; position: sticky; top: 0; background: var(--vscode-editor-background); padding: 4px 0; z-index: 1; }
+select, input[type="text"], input[type="date"], input[type="number"] {
+  background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px; padding: 3px 6px; width: 100%; box-sizing: border-box;
+}
+fieldset { border: 1px solid var(--vscode-panel-border); border-radius: 4px; margin-bottom: 10px; }
+legend { padding: 0 6px; font-weight: 600; }
+.field { margin-bottom: 8px; }
+.field label { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px; }
+.field .name { cursor: help; }
+.mandatory { color: var(--vscode-editorError-foreground, #f14c4c); font-size: 11px; }
+.optional { color: var(--vscode-descriptionForeground); font-size: 11px; }
+.field.missing input { border-color: var(--vscode-editorError-foreground, #f14c4c); }
+.field input:disabled { opacity: 0.5; }
+button { cursor: pointer; padding: 4px 10px; }
+#applyBtn { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 2px; }
+#applyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+#warning { color: var(--vscode-editorWarning-foreground, #cca700); font-size: 12px; }
+#grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+.repeatableSection { margin-bottom: 10px; }
+.repeatableSection.unavailable { opacity: 0.5; }
+.repeatableTable { width: 100%; border-collapse: collapse; }
+.repeatableTable th { text-align: left; font-weight: 600; font-size: 11px; color: var(--vscode-descriptionForeground); padding: 2px 4px; }
+.repeatableTable td { padding: 2px 4px; }
+.repeatableTable input { min-width: 70px; }
+.repeatableTable .rowRemoveBtn { color: var(--vscode-editorError-foreground, #f14c4c); background: none; border: none; }
+.repeatableSection button.addRowBtn { margin-top: 4px; }
