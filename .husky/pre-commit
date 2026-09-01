@@ -1,14 +1,31 @@
 # Git hooks run under plain `sh`, not the interactive shell that lazy-loads nvm/pnpm
 # (oh-my-zsh's nvm plugin, corepack shims, etc.) - so on an nvm-managed Node install,
 # `pnpm` isn't necessarily on PATH here even though it works in a normal terminal.
-# Only intervene if pnpm isn't already reachable; prefer the .nvmrc-pinned version,
-# but fall back to nvm's default alias if that version doesn't have pnpm installed.
+# Only intervene if pnpm isn't already reachable. Deliberately does NOT source
+# nvm.sh: it's written for bash and uses top-level `return`, which some POSIX `sh`
+# implementations (e.g. dash) treat as "exit the whole script" when sourced outside
+# a function - that silently killed this hook (code 3, no output) the one time it
+# actually needed the fallback. A plain filesystem lookup for an nvm-installed pnpm
+# binary sidesteps that entirely.
 if ! command -v pnpm >/dev/null 2>&1; then
-  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-  if [ -s "$NVM_DIR/nvm.sh" ]; then
-    \. "$NVM_DIR/nvm.sh" --no-use
-    nvm use >/dev/null 2>&1
-    command -v pnpm >/dev/null 2>&1 || nvm use default >/dev/null 2>&1
+  NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  PNPM_BIN=""
+  if [ -f "$NVM_DIR/alias/default" ]; then
+    DEFAULT_VERSION=$(cat "$NVM_DIR/alias/default")
+    if [ -x "$NVM_DIR/versions/node/v$DEFAULT_VERSION/bin/pnpm" ]; then
+      PNPM_BIN="$NVM_DIR/versions/node/v$DEFAULT_VERSION/bin"
+    fi
+  fi
+  if [ -z "$PNPM_BIN" ]; then
+    for candidate in "$NVM_DIR"/versions/node/*/bin; do
+      if [ -x "$candidate/pnpm" ]; then
+        PNPM_BIN="$candidate"
+        break
+      fi
+    done
+  fi
+  if [ -n "$PNPM_BIN" ]; then
+    export PATH="$PNPM_BIN:$PATH"
   fi
 fi
 
