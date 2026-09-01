@@ -29,6 +29,12 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
+    # Must match the GitHub Environment name the federated credential trusts (see
+    # docs/RELEASE_SETUP.md) - an Environment-scoped credential, rather than a
+    # branch-scoped one, is what Microsoft's own OIDC subject claim is checked
+    # against here, and lets you optionally require a manual approval before a
+    # publish runs by adding a protection rule to this environment later.
+    environment: marketplace-publish
     permissions:
       contents: write
       id-token: write # required to fetch the OIDC token azure/login exchanges for a Marketplace publishing credential - no PAT stored anywhere.
@@ -72,7 +78,7 @@ jobs:
       - name: Publish to the VS Code Marketplace
         env:
           COREPACK_ENABLE_STRICT: '0'
-        run: pnpm exec vsce publish --azure-credential --packagePath facturx-vscode.vsix
+        run: pnpm exec vsce publish --azure-credential --skip-duplicate --packagePath facturx-vscode.vsix
 
       - name: Attach the .vsix to the GitHub release
         run: gh release upload "${{ needs.release-please.outputs.tag_name }}" facturx-vscode.vsix --clobber
